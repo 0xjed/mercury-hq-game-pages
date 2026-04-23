@@ -1,0 +1,3281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MERCURY Floating Realm</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #02030a; font-family: Arial, sans-serif; }
+    body:not(.in-game) #hud,
+    body:not(.in-game) #cloud-status,
+    body:not(.in-game) #crosshair,
+    body:not(.in-game) #talk-prompt,
+    body:not(.in-game) #autosave-indicator {
+      display: none !important;
+    }
+    #game { width: 100%; height: 100%; display: block; }
+    #hud {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(140, 215, 255, 0.5);
+      border-radius: 10px;
+      background: rgba(2, 8, 24, 0.5);
+      color: #d8f4ff;
+      font-size: 13px;
+      line-height: 1.4;
+      backdrop-filter: blur(4px);
+      z-index: 2;
+      max-width: 290px;
+    }
+    #cloud-status {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      padding: 8px 10px;
+      border: 1px solid rgba(140, 215, 255, 0.5);
+      border-radius: 10px;
+      background: rgba(2, 8, 24, 0.5);
+      color: #d8f4ff;
+      font-size: 12px;
+      line-height: 1.35;
+      backdrop-filter: blur(4px);
+      z-index: 3;
+      min-width: 210px;
+      text-align: left;
+    }
+    #cloud-link-account {
+      margin-top: 6px;
+      width: 100%;
+      border-radius: 7px;
+      border: 1px solid rgba(180, 220, 255, 0.45);
+      background: #1a2a45;
+      color: #d6f1ff;
+      padding: 6px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .cloud-oauth-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .cloud-oauth-btn {
+      border-radius: 7px;
+      border: 1px solid rgba(180, 220, 255, 0.4);
+      background: #152238;
+      color: #d6f1ff;
+      padding: 6px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .cloud-oauth-btn:hover {
+      background: #1e3355;
+    }
+    #crosshair {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #crosshair::before, #crosshair::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      background: rgba(220, 250, 255, 0.85);
+      transform: translate(-50%, -50%);
+    }
+    #crosshair::before { width: 14px; height: 2px; }
+    #crosshair::after { width: 2px; height: 14px; }
+    #spawn-ui {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(92vw, 340px);
+      background: rgba(5, 12, 30, 0.94);
+      border: 1px solid rgba(155, 210, 255, 0.65);
+      border-radius: 12px;
+      padding: 14px;
+      z-index: 4;
+      display: none;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+    }
+    #spawn-ui h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #e3f6ff;
+    }
+    #spawn-ui p {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: #b8dff1;
+    }
+    #swatches {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .swatch {
+      height: 34px;
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+    }
+    #spawn-close {
+      margin-top: 10px;
+      width: 100%;
+      border: 1px solid rgba(180, 220, 255, 0.4);
+      background: #1a2a45;
+      color: #d6f1ff;
+      padding: 7px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #talk-prompt {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(200, 228, 255, 0.5);
+      background: rgba(5, 12, 30, 0.72);
+      color: #dff2ff;
+      font-size: 12px;
+      z-index: 3;
+      display: none;
+    }
+    #autosave-indicator {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(167, 224, 255, 0.65);
+      background: rgba(4, 14, 33, 0.8);
+      color: #ccf0ff;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      z-index: 4;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+    }
+    #autosave-indicator.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #chat-ui {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      width: min(92vw, 360px);
+      border-radius: 12px;
+      border: 1px solid rgba(155, 210, 255, 0.65);
+      background: rgba(5, 12, 30, 0.94);
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+      padding: 10px;
+      z-index: 5;
+      display: none;
+    }
+    #chat-head {
+      margin: 0 0 8px;
+      color: #e6f7ff;
+      font-size: 14px;
+    }
+    #chat-log {
+      height: 140px;
+      overflow-y: auto;
+      border: 1px solid rgba(160, 206, 238, 0.35);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(7, 16, 37, 0.82);
+      color: #cce8ff;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .chat-line {
+      margin: 0 0 6px;
+    }
+    #chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+    }
+    #chat-input, #chat-send, #chat-close {
+      border-radius: 8px;
+      border: 1px solid rgba(180, 220, 255, 0.4);
+      background: #1a2a45;
+      color: #d6f1ff;
+      padding: 7px 8px;
+      font-size: 12px;
+    }
+    #chat-send, #chat-close { cursor: pointer; }
+    #chat-actions {
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    #pause-ui, #settings-ui {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(90vw, 320px);
+      border-radius: 12px;
+      border: 1px solid rgba(155, 210, 255, 0.65);
+      background: rgba(5, 12, 30, 0.94);
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+      padding: 12px;
+      z-index: 6;
+      display: none;
+    }
+    #settings-ui {
+      z-index: 12;
+    }
+    #pause-ui h3, #settings-ui h3 {
+      margin: 0 0 8px;
+      color: #e6f7ff;
+      font-size: 15px;
+    }
+    .pause-btn {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(180, 220, 255, 0.4);
+      background: #1a2a45;
+      color: #d6f1ff;
+      padding: 8px 10px;
+      margin-top: 7px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    #pause-status {
+      margin-top: 8px;
+      color: #a9d8ef;
+      font-size: 12px;
+      min-height: 16px;
+    }
+    .settings-row {
+      display: grid;
+      gap: 5px;
+      margin: 10px 0;
+      color: #d8efff;
+      font-size: 12px;
+    }
+    .settings-row input {
+      width: 100%;
+    }
+    #clear-save-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(160, 206, 238, 0.26);
+    }
+    #settings-status {
+      min-height: 16px;
+      margin-top: 8px;
+      color: #a9d8ef;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .danger-btn {
+      border-color: rgba(255, 150, 150, 0.42);
+      background: #331b22;
+      color: #ffe0e0;
+    }
+    .danger-btn:hover {
+      background: #4a2430;
+    }
+    #frontdoor {
+      position: fixed;
+      inset: 0;
+      z-index: 11;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: #f2fbff;
+      background: #000;
+    }
+    #frontdoor.hidden {
+      display: none;
+    }
+    #frontdoor-bg {
+      position: absolute;
+      inset: -18%;
+      background:
+        radial-gradient(circle at 24% 24%, rgba(85, 205, 255, 0.12), transparent 22%),
+        radial-gradient(circle at 72% 58%, rgba(180, 112, 255, 0.1), transparent 24%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 46px),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 46px),
+        linear-gradient(135deg, #010205 0%, #050812 46%, #000 100%);
+      transform: rotate(-3deg) scale(1.16);
+      animation: titleDrift 20s linear infinite;
+    }
+    #frontdoor-bg::before,
+    #frontdoor-bg::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(45deg, transparent 0 54px, rgba(130, 214, 255, 0.08) 54px 56px, transparent 56px 112px),
+        repeating-linear-gradient(-45deg, transparent 0 70px, rgba(187, 126, 255, 0.06) 70px 72px, transparent 72px 140px);
+      background-size: 360px 360px, 460px 460px;
+      animation: blockSlide 28s linear infinite;
+    }
+    #frontdoor-bg::after {
+      opacity: 0.55;
+      animation-duration: 33s;
+      animation-direction: reverse;
+    }
+    @keyframes titleDrift {
+      from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
+      to { background-position: 240px 140px, -180px 100px, 0 160px, 160px 0, 0 0; }
+    }
+    @keyframes blockSlide {
+      from { background-position: 0 0, 0 0; }
+      to { background-position: 520px 260px, -420px 420px; }
+    }
+    body.calm-title #frontdoor-bg,
+    body.calm-title #frontdoor-bg::before,
+    body.calm-title #frontdoor-bg::after {
+      animation-play-state: paused;
+    }
+    .front-panel {
+      position: relative;
+      z-index: 1;
+      width: min(92vw, 760px);
+      border: 1px solid rgba(162, 222, 255, 0.52);
+      border-radius: 8px;
+      background: rgba(4, 13, 28, 0.82);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+      padding: 22px;
+      backdrop-filter: blur(8px);
+    }
+    .front-title {
+      margin: 0 0 6px;
+      font-size: 34px;
+      line-height: 1;
+      color: #f2fbff;
+    }
+    .front-subtitle {
+      margin: 0 0 18px;
+      color: #b7d8e8;
+      font-size: 13px;
+    }
+    .front-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .front-btn, .slot-btn {
+      border-radius: 7px;
+      border: 1px solid rgba(188, 228, 255, 0.44);
+      background: #172844;
+      color: #e0f6ff;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .front-btn:hover, .slot-btn:hover, .pause-btn:hover, #recover-close:hover {
+      background: #21385b;
+    }
+    #slot-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .slot-btn {
+      min-height: 110px;
+      text-align: left;
+      display: grid;
+      align-content: space-between;
+      gap: 8px;
+    }
+    .slot-name {
+      display: block;
+      font-weight: 700;
+      font-size: 15px;
+      color: #f2fbff;
+    }
+    .slot-meta {
+      display: block;
+      color: #a9d4e7;
+      line-height: 1.35;
+      font-size: 12px;
+    }
+    #home-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    #map-screen .front-actions {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .map-card {
+      min-height: 132px;
+      text-align: left;
+      display: grid;
+      gap: 8px;
+      align-content: space-between;
+    }
+    .map-card strong {
+      display: block;
+      font-size: 16px;
+    }
+    .map-card span {
+      display: block;
+      color: #a9d4e7;
+      line-height: 1.35;
+      font-size: 12px;
+    }
+    #auth-screen.hidden, #home-screen.hidden, #map-screen.hidden {
+      display: none;
+    }
+    @media (max-width: 720px) {
+      .front-actions, #slot-grid, #home-actions {
+        grid-template-columns: 1fr;
+      }
+      #clear-save-actions {
+        grid-template-columns: 1fr;
+      }
+      .front-panel {
+        padding: 16px;
+      }
+      .front-title {
+        font-size: 28px;
+      }
+    }
+    #delete-ui {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(90vw, 340px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 120, 120, 0.6);
+      background: rgba(28, 8, 10, 0.95);
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+      padding: 12px;
+      z-index: 7;
+      display: none;
+      color: #ffe3e3;
+    }
+    #delete-ui h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #ffd0d0;
+    }
+    #delete-ui p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: #ffc7c7;
+    }
+    #delete-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .delete-btn {
+      border-radius: 8px;
+      border: 1px solid rgba(255, 200, 200, 0.45);
+      background: #3a1717;
+      color: #ffe8e8;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #recover-ui {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(92vw, 420px);
+      border-radius: 12px;
+      border: 1px solid rgba(125, 196, 255, 0.65);
+      background: rgba(7, 16, 34, 0.96);
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+      padding: 12px;
+      z-index: 8;
+      display: none;
+      color: #dbf2ff;
+    }
+    #recover-ui h3 {
+      margin: 0 0 6px;
+      font-size: 15px;
+    }
+    #active-agent-summary {
+      margin: 0 0 8px;
+      padding: 7px 8px;
+      border: 1px solid rgba(140, 200, 245, 0.35);
+      border-radius: 8px;
+      background: rgba(10, 20, 42, 0.84);
+      color: #d9f1ff;
+      font-size: 12px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    #agent-registry-list {
+      max-height: 170px;
+      overflow-y: auto;
+      border: 1px solid rgba(140, 200, 245, 0.45);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(8, 17, 34, 0.9);
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .registry-row {
+      margin: 0 0 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(130, 180, 230, 0.2);
+    }
+    .registry-row:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .registry-nick {
+      color: #dff5ff;
+      font-weight: 700;
+    }
+    .registry-sku {
+      color: #a8d4ee;
+      opacity: 0.95;
+      word-break: break-all;
+    }
+    #agent-registry-empty {
+      opacity: 0.8;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    #recover-list {
+      max-height: 210px;
+      overflow-y: auto;
+      border: 1px solid rgba(140, 200, 245, 0.45);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(6, 14, 30, 0.9);
+      margin-bottom: 8px;
+    }
+    .recover-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(120, 170, 220, 0.2);
+    }
+    .recover-item:last-child {
+      border-bottom: none;
+    }
+    .recover-btn {
+      border-radius: 7px;
+      border: 1px solid rgba(170, 220, 255, 0.5);
+      background: #1a3650;
+      color: #ddf4ff;
+      padding: 5px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #recover-close {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(180, 220, 255, 0.4);
+      background: #1a2a45;
+      color: #d6f1ff;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    #recover-empty {
+      opacity: 0.8;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+      background: #000;
+      color: #f0f6ff;
+      display: none;
+      place-items: center;
+      opacity: 1;
+      transition: opacity 0.45s ease;
+    }
+    #loading-overlay.active {
+      display: grid;
+    }
+    #loading-overlay.hidden {
+      opacity: 0;
+    }
+    #loading-top-bar, #loading-bottom-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 18vh;
+      background: #000;
+    }
+    #loading-top-bar { top: 0; }
+    #loading-bottom-bar { bottom: 0; }
+    #loading-text {
+      font-size: clamp(20px, 2.8vw, 34px);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div id="frontdoor">
+    <div id="frontdoor-bg"></div>
+    <section id="auth-screen" class="front-panel" aria-label="Sign in">
+      <h1 class="front-title">MERCURY Floating Realm</h1>
+      <p class="front-subtitle">Sign in to keep three separate cloud saves, or continue as a guest on this browser.</p>
+      <div class="front-actions">
+        <button id="auth-google" class="front-btn" type="button">Continue with Google</button>
+        <button id="auth-github" class="front-btn" type="button">Continue with GitHub</button>
+        <button id="auth-guest" class="front-btn" type="button">Play as Guest</button>
+      </div>
+      <div id="auth-status" class="front-subtitle" aria-live="polite"></div>
+    </section>
+    <section id="home-screen" class="front-panel hidden" aria-label="Home">
+      <h1 class="front-title">MERCURY Floating Realm</h1>
+      <p id="home-user-line" class="front-subtitle">Choose a save slot.</p>
+      <div id="slot-grid">
+        <button class="slot-btn" type="button" data-slot="1">
+          <span class="slot-name">World 1</span>
+          <span class="slot-meta" id="slot-meta-1">Checking save...</span>
+        </button>
+        <button class="slot-btn" type="button" data-slot="2">
+          <span class="slot-name">World 2</span>
+          <span class="slot-meta" id="slot-meta-2">Checking save...</span>
+        </button>
+        <button class="slot-btn" type="button" data-slot="3">
+          <span class="slot-name">World 3</span>
+          <span class="slot-meta" id="slot-meta-3">Checking save...</span>
+        </button>
+      </div>
+      <div id="home-actions">
+        <button id="home-shop" class="front-btn" type="button">Shop</button>
+        <button id="home-settings" class="front-btn" type="button">Settings</button>
+        <button id="home-sign-out" class="front-btn" type="button">Sign Out</button>
+      </div>
+    </section>
+    <section id="map-screen" class="front-panel hidden" aria-label="Choose map">
+      <h1 class="front-title">Choose Map</h1>
+      <p id="map-choice-line" class="front-subtitle">Pick a world style for this empty save slot.</p>
+      <div class="front-actions">
+        <button class="front-btn map-card" type="button" data-map="floating_realm">
+          <strong>World 1: Floating Realm</strong>
+          <span>The island map we already built, with waterfalls, trees, crystals, agent rings, and the recover terminal.</span>
+        </button>
+        <button class="front-btn map-card" type="button" data-map="void_foundry">
+          <strong>World 2: Void Foundry</strong>
+          <span>A darker second-world slot, ready for the new map you make today. Saves stay separate by slot and selected map.</span>
+        </button>
+      </div>
+      <div id="map-actions" style="margin-top: 10px;">
+        <button id="map-back" class="front-btn" type="button">Back</button>
+      </div>
+    </section>
+  </div>
+  <div id="hud">
+    <strong>MERCURY Floating Realm</strong><br />
+    Click to lock mouse<br />
+    Move: WASD / Arrows | Look: Mouse | Jump: Space
+  </div>
+  <div id="cloud-status">
+    <div id="cloud-auth-line">Cloud auth: booting...</div>
+    <div id="cloud-sync-line">Cloud sync: idle</div>
+    <div id="mirror-sync-line">Mirror sync: idle</div>
+    <div id="cloud-user-line">Signed in as: guest</div>
+    <button id="cloud-link-account" type="button">Link save to email</button>
+    <div class="cloud-oauth-row" role="group" aria-label="Sign in with OAuth">
+      <button id="cloud-oauth-google" type="button" class="cloud-oauth-btn">Google</button>
+      <button id="cloud-oauth-github" type="button" class="cloud-oauth-btn">GitHub</button>
+    </div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="spawn-ui">
+    <h3>Spawn NPC</h3>
+    <p>Press E at the island button to open this menu, then tap one of eight team colors to spawn in that color&apos;s ring wedge.</p>
+    <div id="swatches"></div>
+    <button id="spawn-close" type="button">Close</button>
+  </div>
+  <div id="talk-prompt"></div>
+  <div id="autosave-indicator">Autosave ✓</div>
+  <div id="chat-ui">
+    <h3 id="chat-head"></h3>
+    <div id="chat-log"></div>
+    <form id="chat-form">
+      <input id="chat-input" type="text" maxlength="140" placeholder="Say something..." />
+      <button id="chat-send" type="submit">Send</button>
+    </form>
+    <div id="chat-actions">
+      <button id="chat-close" type="button">Close Chat</button>
+    </div>
+  </div>
+  <div id="pause-ui">
+    <h3>Game Menu</h3>
+    <button id="pause-resume" class="pause-btn" type="button">Resume</button>
+    <button id="pause-settings" class="pause-btn" type="button">Settings</button>
+    <button id="pause-save-quit" class="pause-btn" type="button">Save and Quit</button>
+    <div id="pause-status"></div>
+  </div>
+  <div id="settings-ui">
+    <h3>Settings</h3>
+    <label class="settings-row">
+      Mouse sensitivity
+      <input id="mouse-sensitivity" type="range" min="0.8" max="1.8" step="0.1" value="1" />
+    </label>
+    <label class="settings-row">
+      <span><input id="reduced-motion" type="checkbox" /> Calm title background</span>
+    </label>
+    <div id="clear-save-actions" aria-label="Clear save slots">
+      <button class="pause-btn danger-btn clear-slot-btn" type="button" data-clear-slot="1">Clear slot 1</button>
+      <button class="pause-btn danger-btn clear-slot-btn" type="button" data-clear-slot="2">Clear slot 2</button>
+      <button class="pause-btn danger-btn clear-slot-btn" type="button" data-clear-slot="3">Clear slot 3</button>
+      <button id="clear-all-slots" class="pause-btn danger-btn" type="button">Clear all slots</button>
+    </div>
+    <div id="settings-status" aria-live="polite"></div>
+    <button id="settings-close" class="pause-btn" type="button">Done</button>
+  </div>
+  <div id="delete-ui">
+    <h3>Confirm Banish</h3>
+    <p id="delete-text">Delete this agent from the map?</p>
+    <div id="delete-actions">
+      <button id="delete-confirm" class="delete-btn" type="button">Confirm (X)</button>
+      <button id="delete-cancel" class="delete-btn" type="button">Cancel (Esc)</button>
+    </div>
+  </div>
+  <div id="recover-ui">
+    <h3>Recover Agent</h3>
+    <div id="active-agent-summary">Active mirrored agents: none</div>
+    <div id="agent-registry-list"></div>
+    <h3>Deleted Agents</h3>
+    <div id="recover-list"></div>
+    <button id="recover-close" type="button">Close</button>
+  </div>
+  <div id="loading-overlay">
+    <div id="loading-top-bar"></div>
+    <div id="loading-bottom-bar"></div>
+    <div id="loading-text">Loading World</div>
+  </div>
+  <canvas id="game"></canvas>
+
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
+
+    const canvas = document.getElementById("game");
+    const frontdoor = document.getElementById("frontdoor");
+    const authScreen = document.getElementById("auth-screen");
+    const homeScreen = document.getElementById("home-screen");
+    const authGoogle = document.getElementById("auth-google");
+    const authGithub = document.getElementById("auth-github");
+    const authGuest = document.getElementById("auth-guest");
+    const authStatus = document.getElementById("auth-status");
+    const homeUserLine = document.getElementById("home-user-line");
+    const mapScreen = document.getElementById("map-screen");
+    const mapChoiceLine = document.getElementById("map-choice-line");
+    const mapBack = document.getElementById("map-back");
+    const mapButtons = Array.from(document.querySelectorAll(".map-card"));
+    const homeShop = document.getElementById("home-shop");
+    const homeSettings = document.getElementById("home-settings");
+    const homeSignOut = document.getElementById("home-sign-out");
+    const slotButtons = Array.from(document.querySelectorAll(".slot-btn"));
+    const spawnUI = document.getElementById("spawn-ui");
+    const swatches = document.getElementById("swatches");
+    const spawnClose = document.getElementById("spawn-close");
+    const crosshair = document.getElementById("crosshair");
+    const talkPrompt = document.getElementById("talk-prompt");
+    const autosaveIndicator = document.getElementById("autosave-indicator");
+    const chatUI = document.getElementById("chat-ui");
+    const chatHead = document.getElementById("chat-head");
+    const chatLog = document.getElementById("chat-log");
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("chat-input");
+    const chatClose = document.getElementById("chat-close");
+    const pauseUI = document.getElementById("pause-ui");
+    const pauseResume = document.getElementById("pause-resume");
+    const pauseSettings = document.getElementById("pause-settings");
+    const pauseSaveQuit = document.getElementById("pause-save-quit");
+    const pauseStatus = document.getElementById("pause-status");
+    const settingsUI = document.getElementById("settings-ui");
+    const settingsClose = document.getElementById("settings-close");
+    const settingsStatus = document.getElementById("settings-status");
+    const clearSlotButtons = Array.from(document.querySelectorAll(".clear-slot-btn"));
+    const clearAllSlotsButton = document.getElementById("clear-all-slots");
+    const mouseSensitivityInput = document.getElementById("mouse-sensitivity");
+    const reducedMotionInput = document.getElementById("reduced-motion");
+    const deleteUI = document.getElementById("delete-ui");
+    const deleteText = document.getElementById("delete-text");
+    const deleteConfirm = document.getElementById("delete-confirm");
+    const deleteCancel = document.getElementById("delete-cancel");
+    const recoverUI = document.getElementById("recover-ui");
+    const activeAgentSummary = document.getElementById("active-agent-summary");
+    const agentRegistryList = document.getElementById("agent-registry-list");
+    const recoverList = document.getElementById("recover-list");
+    const recoverClose = document.getElementById("recover-close");
+    const loadingOverlay = document.getElementById("loading-overlay");
+    const cloudStatus = document.getElementById("cloud-status");
+    const cloudAuthLine = document.getElementById("cloud-auth-line");
+    const cloudSyncLine = document.getElementById("cloud-sync-line");
+    const mirrorSyncLine = document.getElementById("mirror-sync-line");
+    const cloudUserLine = document.getElementById("cloud-user-line");
+    const cloudLinkAccount = document.getElementById("cloud-link-account");
+    const debugRunId = "pre-fix-2";
+    function debugLog(hypothesisId, location, message, data) {
+      fetch("http://127.0.0.1:7255/ingest/9d496d00-6fbb-4ffc-baf2-0975084fdcce", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "578cc6" }, body: JSON.stringify({ sessionId: "578cc6", runId: debugRunId, hypothesisId, location, message, data, timestamp: Date.now() }) }).catch(() => {});
+    }
+    // #region agent log
+    debugLog("H5", "MERCURY_HTML_GAME.html:init", "Instrumentation active on page load", { href: window.location.href, ua: navigator.userAgent });
+    // #endregion
+    document.addEventListener("visibilitychange", () => {
+      // #region agent log
+      debugLog("H6", "MERCURY_HTML_GAME.html:visibilitychange", "Visibility changed", { hidden: document.hidden, visibilityState: document.visibilityState });
+      // #endregion
+    });
+    window.addEventListener("focus", () => {
+      // #region agent log
+      debugLog("H6", "MERCURY_HTML_GAME.html:focus", "Window focused", { activeTag: document.activeElement ? document.activeElement.tagName : null });
+      // #endregion
+    });
+    window.addEventListener("blur", () => {
+      // #region agent log
+      debugLog("H6", "MERCURY_HTML_GAME.html:blur", "Window blurred", { activeTag: document.activeElement ? document.activeElement.tagName : null });
+      // #endregion
+    });
+    document.addEventListener("focusin", () => {
+      // #region agent log
+      debugLog("H9", "MERCURY_HTML_GAME.html:focusin", "Focus moved", { activeTag: document.activeElement ? document.activeElement.tagName : null, hasFocus: document.hasFocus() });
+      // #endregion
+    });
+    document.addEventListener("pointerlockchange", () => {
+      // #region agent log
+      debugLog("H7", "MERCURY_HTML_GAME.html:pointerlockchange", "Pointer lock changed", { pointerLocked: document.pointerLockElement === canvas, spawnMenuOpen, chatOpen });
+      // #endregion
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.code === "KeyE" || event.code === "KeyF" || event.code === "Escape") {
+        // #region agent log
+        debugLog("H10", "MERCURY_HTML_GAME.html:window.keydown.capture", "Window capture keydown", {
+          code: event.code,
+          hasFocus: document.hasFocus(),
+          activeTag: document.activeElement ? document.activeElement.tagName : null,
+          pointerLocked: document.pointerLockElement === canvas,
+          spawnMenuOpen,
+          chatOpen
+        });
+        // #endregion
+      }
+    }, true);
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: false,
+      powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = false;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x0a1330, 35, 120);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250);
+    const playerHeight = 1.7;
+    camera.position.set(0, playerHeight, 8);
+    scene.add(camera);
+    const heirloomPivot = new THREE.Group();
+    const staffGoldDark = new THREE.MeshStandardMaterial({ color: 0x8e6a12, roughness: 0.45, metalness: 0.85 });
+    const staffGoldBright = new THREE.MeshStandardMaterial({ color: 0xe1b848, roughness: 0.2, metalness: 0.92 });
+    const staffGemMat = new THREE.MeshStandardMaterial({ color: 0xffec8d, emissive: 0x6b4f0f, roughness: 0.26, metalness: 0.3 });
+    const staffPole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.72, 10), staffGoldDark);
+    const topLoop = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.012, 10, 24), staffGoldBright);
+    topLoop.position.y = 0.42;
+    topLoop.rotation.x = Math.PI / 2;
+    const serpentNeck = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.012, 8, 22, Math.PI * 1.35), staffGoldBright);
+    serpentNeck.position.set(0.06, 0.42, 0);
+    serpentNeck.rotation.z = 0.44;
+    const serpentHead = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 8), staffGoldBright);
+    serpentHead.position.set(0.135, 0.445, 0);
+    serpentHead.rotation.z = -0.95;
+    const serpentEye = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 8), staffGemMat);
+    serpentEye.position.set(0.155, 0.453, 0.0);
+    for (let i = 0; i < 7; i++) {
+      const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.0055, 6, 16), staffGoldBright);
+      wrap.rotation.x = Math.PI / 2;
+      wrap.rotation.z = i * 0.58;
+      wrap.position.y = -0.26 + i * 0.105;
+      wrap.position.x = Math.sin(i * 0.55) * 0.012;
+      wrap.position.z = Math.cos(i * 0.55) * 0.012;
+      heirloomPivot.add(wrap);
+    }
+    heirloomPivot.add(staffPole);
+    heirloomPivot.add(topLoop);
+    heirloomPivot.add(serpentNeck);
+    heirloomPivot.add(serpentHead);
+    heirloomPivot.add(serpentEye);
+    const staffMagicGroup = new THREE.Group();
+    const staffMagicGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xb05bff, transparent: true, opacity: 0.34 })
+    );
+    staffMagicGlow.position.set(0.08, 0.44, 0);
+    staffMagicGroup.add(staffMagicGlow);
+    const staffMagicRingA = new THREE.Mesh(
+      new THREE.TorusGeometry(0.14, 0.008, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0xb86bff, transparent: true, opacity: 0.72 })
+    );
+    staffMagicRingA.position.set(0.08, 0.44, 0);
+    staffMagicRingA.rotation.x = Math.PI / 2;
+    staffMagicGroup.add(staffMagicRingA);
+    const staffMagicRingB = new THREE.Mesh(
+      new THREE.TorusGeometry(0.1, 0.007, 8, 20),
+      new THREE.MeshBasicMaterial({ color: 0x9a45ff, transparent: true, opacity: 0.68 })
+    );
+    staffMagicRingB.position.set(0.08, 0.44, 0);
+    staffMagicRingB.rotation.y = Math.PI / 2;
+    staffMagicGroup.add(staffMagicRingB);
+    const staffMagicOrbs = [];
+    for (let i = 0; i < 6; i++) {
+      const orb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.014, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xcf8bff, transparent: true, opacity: 0.9 })
+      );
+      staffMagicGroup.add(orb);
+      staffMagicOrbs.push(orb);
+    }
+    heirloomPivot.add(staffMagicGroup);
+    heirloomPivot.position.set(0.58, -0.38, -0.88);
+    heirloomPivot.rotation.set(-0.1, -0.42, -0.16);
+    camera.add(heirloomPivot);
+
+    const flatAmbient = new THREE.AmbientLight(0xffffff, 1.0);
+    scene.add(flatAmbient);
+
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(170, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0x101a46, side: THREE.BackSide })
+    );
+    scene.add(sky);
+
+    const islandGroup = new THREE.Group();
+    scene.add(islandGroup);
+
+    const islandTop = new THREE.Mesh(
+      new THREE.CylinderGeometry(16, 18.5, 1.2, 7),
+      new THREE.MeshStandardMaterial({ color: 0x58b769, roughness: 0.95, metalness: 0.02 })
+    );
+    islandTop.position.y = 0;
+    islandGroup.add(islandTop);
+
+    const islandBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(10.5, 15.5, 7, 7),
+      new THREE.MeshStandardMaterial({ color: 0x6a5a4b, roughness: 1.0, metalness: 0.0 })
+    );
+    islandBody.position.y = -4.1;
+    islandGroup.add(islandBody);
+
+    const islandBase = new THREE.Mesh(
+      new THREE.ConeGeometry(7.5, 7.8, 7),
+      new THREE.MeshStandardMaterial({ color: 0x4e4035, roughness: 1.0, metalness: 0.0 })
+    );
+    islandBase.position.y = -11.2;
+    islandGroup.add(islandBase);
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(14.2, 28),
+      new THREE.MeshStandardMaterial({ color: 0x3e9352, roughness: 0.95, metalness: 0.0 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0.03;
+    islandGroup.add(floor);
+
+    const campfire = new THREE.Group();
+    const fireStoneMat = new THREE.MeshStandardMaterial({ color: 0x6f665a, roughness: 0.95, metalness: 0.02 });
+    const flameCoreMat = new THREE.MeshBasicMaterial({ color: 0xffbe68, transparent: true, opacity: 0.86 });
+    const flameOuterMat = new THREE.MeshBasicMaterial({ color: 0xff7f34, transparent: true, opacity: 0.54 });
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const stone = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.2, 0.28), fireStoneMat);
+      stone.position.set(Math.cos(a) * 0.76, 0.12, Math.sin(a) * 0.76);
+      stone.rotation.y = a + Math.random() * 0.3;
+      campfire.add(stone);
+    }
+    const flameCore = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.02, 8), flameCoreMat);
+    flameCore.position.set(0, 0.78, 0);
+    campfire.add(flameCore);
+    const flameOuter = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.38, 8), flameOuterMat);
+    flameOuter.position.set(0, 0.7, 0);
+    campfire.add(flameOuter);
+    const flameBrownRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.05, 10, 24),
+      new THREE.MeshStandardMaterial({ color: 0x7a4b2e, roughness: 0.92, metalness: 0.0 })
+    );
+    flameBrownRing.position.set(0, 0.26, 0);
+    flameBrownRing.rotation.x = Math.PI / 2;
+    campfire.add(flameBrownRing);
+    campfire.position.set(0, 0.05, 0);
+    islandGroup.add(campfire);
+
+    const borderMat = new THREE.MeshStandardMaterial({ color: 0x7fe8ff, roughness: 0.3, metalness: 0.0, transparent: true, opacity: 0.56 });
+    const wallHeight = 2.1;
+    const borderRadius = 13.2;
+    for (let i = 0; i < 18; i++) {
+      const angle = (i / 18) * Math.PI * 2;
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.7, wallHeight, 0.45), borderMat);
+      wall.position.set(Math.cos(angle) * borderRadius, wallHeight * 0.5, Math.sin(angle) * borderRadius);
+      wall.lookAt(0, wall.position.y, 0);
+      islandGroup.add(wall);
+    }
+
+    // Border feature: long rock ledge + waterfall at blue/yellow seam.
+    const seamRockMat = new THREE.MeshStandardMaterial({ color: 0x62584d, roughness: 0.95, metalness: 0.01 });
+    const seamRock = new THREE.Mesh(new THREE.BoxGeometry(3.8, 1.3, 0.95), seamRockMat);
+    seamRock.position.set(0, 1.2, 11.65);
+    islandGroup.add(seamRock);
+    const seamRockCap = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.24, 1.05), new THREE.MeshStandardMaterial({ color: 0x746658, roughness: 0.92, metalness: 0.01 }));
+    seamRockCap.position.set(0, 2.88, 11.7);
+    islandGroup.add(seamRockCap);
+
+    const waterfallMat = new THREE.MeshBasicMaterial({ color: 0x79b8d8, transparent: true, opacity: 0.58, side: THREE.DoubleSide });
+    const waterfall = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 5.25), waterfallMat);
+    waterfall.position.set(0, 0.04, 11.25);
+    islandGroup.add(waterfall);
+    const waterfallBackLine = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.15, 5.28),
+      new THREE.MeshBasicMaterial({ color: 0x8bb9c8, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
+    );
+    waterfallBackLine.position.set(0, 0.05, 11.63);
+    islandGroup.add(waterfallBackLine);
+    const waterfallBackWall = new THREE.Mesh(
+      new THREE.BoxGeometry(3.45, 5.4, 0.2),
+      new THREE.MeshStandardMaterial({ color: 0x5f554b, roughness: 0.95, metalness: 0.01 })
+    );
+    waterfallBackWall.position.set(0, 0.06, 11.84);
+    islandGroup.add(waterfallBackWall);
+    const waterfallTop = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.38), new THREE.MeshBasicMaterial({ color: 0x89b6c6, transparent: true, opacity: 0.6 }));
+    waterfallTop.position.set(0, 2.88, 11.38);
+    islandGroup.add(waterfallTop);
+    const rockScatterMat = new THREE.MeshStandardMaterial({ color: 0x6a5d50, roughness: 0.96, metalness: 0.0 });
+    const rockPieces = [
+      [-1.52, 0.12, 11.46, 0.34, 0.25, 0.28],
+      [-0.98, -0.02, 11.18, 0.3, 0.22, 0.2],
+      [-0.32, -0.08, 11.5, 0.26, 0.2, 0.18],
+      [0.26, -0.1, 11.23, 0.28, 0.22, 0.2],
+      [0.96, -0.02, 11.47, 0.32, 0.24, 0.22],
+      [1.48, 0.1, 11.2, 0.35, 0.26, 0.24]
+    ];
+    for (const piece of rockPieces) {
+      const rock = new THREE.Mesh(new THREE.BoxGeometry(piece[3], piece[4], piece[5]), rockScatterMat);
+      rock.position.set(piece[0], piece[1], piece[2]);
+      rock.rotation.y = Math.random() * Math.PI;
+      islandGroup.add(rock);
+    }
+
+    const crystalMat = new THREE.MeshStandardMaterial({ color: 0x98eaff, emissive: 0x1f4a6a, roughness: 0.22, metalness: 0.08 });
+    for (let i = 0; i < 24; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rad = 2 + Math.random() * 9.5;
+      const h = 0.4 + Math.random() * 1.1;
+      const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.15 + Math.random() * 0.2, h, 6), crystalMat);
+      crystal.position.set(Math.cos(ang) * rad, h * 0.5, Math.sin(ang) * rad);
+      crystal.rotation.y = Math.random() * Math.PI;
+      islandGroup.add(crystal);
+    }
+
+    const treeSpots = [];
+    const buttonPosition = new THREE.Vector2(0.8, -1.8);
+    function angleDiff(a, b) {
+      let d = a - b;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return Math.abs(d);
+    }
+    function registerTreeZone(x, z, treeRadius = 1.8) {
+      treeSpots.push({
+        x,
+        z,
+        r: treeRadius,
+        ang: Math.atan2(z, x),
+        distFromCenter: Math.hypot(x, z)
+      });
+    }
+
+    const trees = new THREE.Group();
+    islandGroup.add(trees);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4432, roughness: 1.0 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x59c974, roughness: 0.9 });
+    const treeCount = 10;
+    let treePlaced = 0;
+    let treeAttempts = 0;
+    while (treePlaced < treeCount && treeAttempts < 120) {
+      treeAttempts += 1;
+      const ang = (treePlaced / treeCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+      const rad = 4.6 + Math.random() * 1.5; // keep trees closer to middle
+      const tx = Math.cos(ang) * rad;
+      const tz = Math.sin(ang) * rad;
+      if (Math.hypot(tx - buttonPosition.x, tz - buttonPosition.y) < 4.5) continue;
+      if (treeSpots.some((t) => Math.hypot(tx - t.x, tz - t.z) < 2.2)) continue;
+      registerTreeZone(tx, tz, 1.75);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.3, 6), trunkMat);
+      trunk.position.set(tx, 0.65, tz);
+      trees.add(trunk);
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.8, 7), leafMat);
+      leaf.position.set(tx, 1.95, tz);
+      trees.add(leaf);
+      treePlaced += 1;
+    }
+
+    function addPalmTree(x, z, height = 2.9) {
+      const palm = new THREE.Group();
+      const palmTrunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.95 });
+      const palmLeafMat = new THREE.MeshStandardMaterial({ color: 0x43b96a, roughness: 0.85 });
+
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, height, 6), palmTrunkMat);
+      trunk.position.y = height * 0.5;
+      trunk.rotation.z = 0.1;
+      palm.add(trunk);
+
+      const topY = height + 0.15;
+      for (let i = 0; i < 6; i++) {
+        const frond = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 1.5), palmLeafMat);
+        frond.position.set(0, topY, 0);
+        frond.rotation.y = (i / 6) * Math.PI * 2;
+        frond.rotation.x = -0.35;
+        frond.position.x += Math.cos(frond.rotation.y) * 0.55;
+        frond.position.z += Math.sin(frond.rotation.y) * 0.55;
+        palm.add(frond);
+      }
+
+      palm.position.set(x, 0, z);
+      islandGroup.add(palm);
+      registerTreeZone(x, z, 2.0);
+    }
+
+    addPalmTree(-3.2, 4.4, 3.1);
+    addPalmTree(4.6, -2.9, 2.8);
+
+    function addControlStand(x, z) {
+      const stand = new THREE.Group();
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0xb8bec8, roughness: 0.86 });
+      const panelMat = new THREE.MeshStandardMaterial({ color: 0xd6dbe2, roughness: 0.66 });
+      const buttonMat = new THREE.MeshStandardMaterial({ color: 0xe03737, emissive: 0x4a0808, roughness: 0.3 });
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.5, 0.78), baseMat);
+      base.position.y = 0.25;
+      stand.add(base);
+
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.62, 0.22), baseMat);
+      post.position.y = 0.81;
+      stand.add(post);
+
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.52), panelMat);
+      panel.position.y = 1.18;
+      stand.add(panel);
+
+      const button = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.085, 0.05, 12), buttonMat);
+      button.position.y = 1.245;
+      stand.add(button);
+
+      stand.position.set(x, 0, z);
+      islandGroup.add(stand);
+      return { stand, button, buttonBaseY: button.position.y };
+    }
+
+    const buttonStation = addControlStand(-2.15, 1.25);
+    const redButton = buttonStation.button;
+    const redButtonBaseY = buttonStation.buttonBaseY;
+    const buttonInteractionOffset = new THREE.Vector3(0.7, 0, -0.45);
+    const terminalStation = (() => {
+      const terminal = new THREE.Group();
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x5f6d79, roughness: 0.84 });
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x9db0c3, roughness: 0.58 });
+      const screenMat = new THREE.MeshBasicMaterial({ color: 0x4ebcff });
+      const keyMat = new THREE.MeshStandardMaterial({ color: 0x6f8daa, roughness: 0.75 });
+      const column = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.18, 0.32), baseMat);
+      column.position.y = 0.59;
+      terminal.add(column);
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.36, 0.26), baseMat);
+      neck.position.y = 1.31;
+      neck.rotation.x = -0.2;
+      terminal.add(neck);
+      const monitorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.64, 0.15), frameMat);
+      monitorFrame.position.y = 1.56;
+      monitorFrame.rotation.x = -0.08;
+      terminal.add(monitorFrame);
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.38), screenMat);
+      screen.position.set(0, 1.58, 0.09);
+      terminal.add(screen);
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.44), frameMat);
+      deck.position.set(0, 1.08, 0.22);
+      deck.rotation.x = 0.32;
+      terminal.add(deck);
+      const keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.08, 0.5), keyMat);
+      keyboard.position.set(0, 1.01, 0.5);
+      keyboard.rotation.x = 0.32;
+      terminal.add(keyboard);
+      const buttonX = buttonStation.stand.position.x;
+      const buttonZ = buttonStation.stand.position.z;
+      const baseOppositeX = -buttonX;
+      const baseOppositeZ = -buttonZ;
+      const oppositeLen = Math.hypot(baseOppositeX, baseOppositeZ) || 1;
+      const forwardOffset = 2.5;
+      const terminalX = (baseOppositeX / oppositeLen) * (oppositeLen + forwardOffset);
+      const terminalZ = (baseOppositeZ / oppositeLen) * (oppositeLen + forwardOffset);
+      terminal.position.set(terminalX, 0, terminalZ);
+      terminal.lookAt(buttonX, 1.0, buttonZ);
+      islandGroup.add(terminal);
+      const interactionOffset = new THREE.Vector3(0, 0, 0.9);
+      return { mesh: terminal, interactionOffset };
+    })();
+    const noSpawnRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.95, 1.22, 28),
+      new THREE.MeshBasicMaterial({ color: 0xff6b6b, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+    );
+    noSpawnRing.rotation.x = -Math.PI / 2;
+    noSpawnRing.position.set(buttonStation.stand.position.x + 0.95, 0.055, buttonStation.stand.position.z - 0.55);
+    islandGroup.add(noSpawnRing);
+
+    const npcGroup = new THREE.Group();
+    islandGroup.add(npcGroup);
+    /** Eight visually distinct body colors (local spawn + HUD swatches). Mirror can still assign its own hex per agent. */
+    const npcPalette = [
+      0x66d9ff,
+      0xff9f40,
+      0x8eff9c,
+      0xff90d7,
+      0xb57dff,
+      0xff4b4b,
+      0x35d07f,
+      0x2f7dff
+    ];
+
+    function angleBucketForPalette(x, z) {
+      const n = npcPalette.length;
+      const span = (Math.PI * 2) / n;
+      let a = Math.atan2(z, x);
+      if (a < 0) a += Math.PI * 2;
+      return Math.min(n - 1, Math.floor(a / span));
+    }
+    const npcHeadMat = new THREE.MeshStandardMaterial({ color: 0xf5d5b0, roughness: 0.9 });
+    const npcs = [];
+    let spawnMenuOpen = false;
+    let chatOpen = false;
+    let pauseMenuOpen = false;
+    let deleteConfirmOpen = false;
+    let recoverMenuOpen = false;
+    let settingsOpen = false;
+    let frontDoorOpen = true;
+    let gameStarted = false;
+    let gameLoopStarted = false;
+    let activeNpc = null;
+    let nearestNpc = null;
+    let pendingDeleteNpc = null;
+    let npcCounter = 0;
+    const deletedAgents = [];
+    const WORLD_SAVE_KEY = "mercury_world_save_v1";
+    const WORLD_SAVE_FALLBACK_KEY = "mercury_world_save_v1_backup";
+    const WORLD_PLAYER_ID_KEY = "mercury_world_player_id_v1";
+    const WORLD_ACCOUNT_ID_KEY = "mercury_world_account_id_v1";
+    const ACTIVE_SAVE_SLOT_KEY = "mercury_active_save_slot_v1";
+    const SETTINGS_KEY = "mercury_settings_v1";
+    const AUTOSAVE_INTERVAL_MS = 180000;
+    const MIRROR_SYNC_INTERVAL_MS = 60000;
+    const SUPABASE_URL = "https://plhhgegsfetgfsvdubyt.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_XCauQXNAMqACun6hrbpIQw_eHFHYcVx";
+    const CLOUD_SAVE_TABLE = "game_saves";
+    const MIRROR_TABLE = "paperclip_agent_mirror";
+    const COMMANDS_TABLE = "game_agent_commands";
+    const GMAIL_SOURCE_AGENT_ID = "17a4d39d-5eea-4949-a6d0-bbd0a5c3b120";
+    const GMAIL_GAME_AGENT_ID = "0e84030c-310a-4cdc-91d2-232a6046b306";
+    let lastSavedAt = 0;
+    let agentSaveTimer = null;
+    let lastSaveError = "";
+    let autosaveIndicatorTimer = null;
+    let cloudAuthStatus = "booting";
+    let cloudSyncStatus = "idle";
+    let cloudUserStatus = "guest";
+    let mirrorSyncStatus = "idle";
+    let accountBaseId = localStorage.getItem(WORLD_ACCOUNT_ID_KEY) || localStorage.getItem(WORLD_PLAYER_ID_KEY) || "";
+    let activeSaveSlot = localStorage.getItem(ACTIVE_SAVE_SLOT_KEY) || "1";
+    let activeWorldMapId = "floating_realm";
+    let pendingMapSlot = "";
+    let mouseSensitivity = 1;
+    let calmTitleBackground = false;
+    const supabase = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
+      ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        })
+      : null;
+
+    const worldMaps = {
+      floating_realm: {
+        name: "World 1",
+        loading: "Loading World 1",
+        fog: 0x0a1330,
+        sky: 0x101a46,
+        islandTop: 0x58b769,
+        floor: 0x3e9352,
+        islandBody: 0x6a5a4b,
+        islandBase: 0x4e4035,
+        leaves: 0x59c974,
+        palms: 0x43b96a,
+        crystals: 0x98eaff,
+        crystalGlow: 0x1f4a6a,
+        border: 0x7fe8ff,
+        clouds: 0x6a82b9,
+        stars: 0x9cd7ff,
+        waterfall: 0x79b8d8
+      },
+      void_foundry: {
+        name: "World 2",
+        loading: "Loading World 2",
+        fog: 0x02030a,
+        sky: 0x03030a,
+        islandTop: 0x1d2230,
+        floor: 0x111824,
+        islandBody: 0x25212a,
+        islandBase: 0x16131d,
+        leaves: 0x2e5664,
+        palms: 0x274a59,
+        crystals: 0xb66cff,
+        crystalGlow: 0x4c1f6a,
+        border: 0xb86bff,
+        clouds: 0x282b44,
+        stars: 0xd0bbff,
+        waterfall: 0x7d5cff
+      }
+    };
+
+    function normalizeWorldMapId(mapId) {
+      return Object.prototype.hasOwnProperty.call(worldMaps, mapId) ? mapId : "floating_realm";
+    }
+
+    function getOrCreatePlayerId() {
+      const existing = localStorage.getItem(WORLD_PLAYER_ID_KEY);
+      if (existing) return existing;
+      const generated = "player_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem(WORLD_PLAYER_ID_KEY, generated);
+      return generated;
+    }
+
+    function normalizeSaveSlot(slot) {
+      const value = String(slot || "1");
+      return ["1", "2", "3"].includes(value) ? value : "1";
+    }
+
+    function getLocalSaveKey(slot = activeSaveSlot) {
+      return WORLD_SAVE_KEY + "_slot_" + normalizeSaveSlot(slot);
+    }
+
+    function getLocalFallbackSaveKey(slot = activeSaveSlot) {
+      return WORLD_SAVE_FALLBACK_KEY + "_slot_" + normalizeSaveSlot(slot);
+    }
+
+    function buildSlotPlayerId(slot = activeSaveSlot) {
+      const base = accountBaseId || getOrCreatePlayerId();
+      return base + ":slot:" + normalizeSaveSlot(slot);
+    }
+
+    let playerId = buildSlotPlayerId(activeSaveSlot);
+
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        const data = raw ? JSON.parse(raw) : {};
+        mouseSensitivity = Number(data.mouseSensitivity || 1);
+        if (!Number.isFinite(mouseSensitivity)) mouseSensitivity = 1;
+        mouseSensitivity = Math.max(0.8, Math.min(1.8, mouseSensitivity));
+        calmTitleBackground = Boolean(data.calmTitleBackground);
+      } catch (_) {
+        mouseSensitivity = 1;
+        calmTitleBackground = false;
+      }
+      if (mouseSensitivityInput) mouseSensitivityInput.value = String(mouseSensitivity);
+      if (reducedMotionInput) reducedMotionInput.checked = calmTitleBackground;
+      document.body.classList.toggle("calm-title", calmTitleBackground);
+    }
+
+    function persistSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ mouseSensitivity, calmTitleBackground }));
+      document.body.classList.toggle("calm-title", calmTitleBackground);
+    }
+
+    function setCloudStatus(authText, syncText) {
+      if (typeof authText === "string") cloudAuthStatus = authText;
+      if (typeof syncText === "string") cloudSyncStatus = syncText;
+      if (cloudAuthLine) cloudAuthLine.textContent = "Cloud auth: " + cloudAuthStatus;
+      if (cloudSyncLine) cloudSyncLine.textContent = "Cloud sync: " + cloudSyncStatus;
+    }
+
+    function setCloudUserStatus(userText) {
+      cloudUserStatus = userText || "guest";
+      if (cloudUserLine) cloudUserLine.textContent = "Signed in as: " + cloudUserStatus;
+    }
+
+    function setMirrorStatus(text) {
+      mirrorSyncStatus = text || "idle";
+      if (mirrorSyncLine) mirrorSyncLine.textContent = "Mirror sync: " + mirrorSyncStatus;
+    }
+
+    function parseMirrorColor(value) {
+      if (typeof value !== "string") return 0x66d9ff;
+      const hex = value.trim().replace("#", "");
+      if (!/^[0-9a-fA-F]{6}$/.test(hex)) return 0x66d9ff;
+      return Number.parseInt(hex, 16);
+    }
+
+    const mirrorDeptPalette = {
+      command: 0x66d9ff,
+      technical: 0x4ea1ff,
+      routing: 0x00c2ff,
+      shopify: 0x35d07f,
+      ndis: 0xf4d35e,
+      nfts: 0x2f7dff,
+      black: 0x111111,
+      research: 0xff4b4b,
+      crypto: 0xff9f40,
+      polymarket: 0xb57dff,
+      comms: 0xff90d7,
+      miscellaneous: 0xbfc7d5
+    };
+
+    function getMirrorDepartmentKey(displayName, role, tribe) {
+      const name = (displayName || "").toLowerCase();
+      const roleKey = (role || "").toLowerCase();
+      const tribeKey = (tribe || "").toLowerCase();
+
+      if (name.includes("research")) return "research";
+      if (name.includes("shopify")) return "shopify";
+      if (name.includes("ndis")) return "ndis";
+      if (name.includes("nft")) return "nfts";
+      if (name.includes("call_centre") || name.includes("call centre")) return "black";
+      if (name.includes("poly") || name.includes("arb")) return "polymarket";
+      if (name.includes("crypto") || name.includes("trader")) return "crypto";
+      if (name.includes("misc")) return "miscellaneous";
+      if (name.includes("gmail") || name.includes("news")) return "comms";
+      if (name.includes("terminal") || name.includes("button") || name.includes("router")) return "routing";
+      if (name.includes("cto") || name.includes("game ic")) return "technical";
+      if (name.includes("tutorial") || name.includes("ceo")) return "command";
+
+      if (tribeKey === "command") return "command";
+      if (tribeKey === "execution") return "technical";
+      if (tribeKey === "ops") return "routing";
+      if (tribeKey === "support") return "comms";
+      if (roleKey.includes("research")) return "research";
+
+      return "miscellaneous";
+    }
+
+    function getColorByMirrorDepartment(displayName, role, tribe) {
+      const key = getMirrorDepartmentKey(displayName, role, tribe);
+      return mirrorDeptPalette[key] || mirrorDeptPalette.command;
+    }
+
+    function getMirrorSectorIndex(displayName, role, tribe) {
+      const key = getMirrorDepartmentKey(displayName, role, tribe);
+      const order = {
+        command: 0,
+        technical: 1,
+        routing: 2,
+        comms: 2,
+        shopify: 3,
+        ndis: 3,
+        black: 4,
+        research: 5,
+        nfts: 5,
+        crypto: 6,
+        polymarket: 7,
+        miscellaneous: 7
+      };
+      return order[key] ?? 0;
+    }
+
+    function getMirrorSlotPosition(sectorIndex, slotIndex) {
+      const sectorAngle = -Math.PI + (sectorIndex + 0.5) * ((Math.PI * 2) / 8);
+      const lane = Math.floor(slotIndex / 2);
+      const side = slotIndex % 2 === 0 ? -1 : 1;
+      const radius = 8.8 + lane * 0.95;
+      const tangent = side * (0.36 + lane * 0.05);
+      return {
+        x: Math.cos(sectorAngle) * radius - Math.sin(sectorAngle) * tangent,
+        z: Math.sin(sectorAngle) * radius + Math.cos(sectorAngle) * tangent
+      };
+    }
+
+    function getColorByTribe(tribe) {
+      const key = (tribe || "").toLowerCase();
+      if (key === "command") return 0x66d9ff;
+      if (key === "execution") return 0x8eff9c;
+      if (key === "ops") return 0xffc86b;
+      if (key === "support") return 0xff90d7;
+      return 0x66d9ff;
+    }
+
+    async function linkSaveToEmail() {
+      if (!supabase) {
+        setCloudStatus("disabled", "offline");
+        return;
+      }
+      const email = window.prompt("Enter your email to link this save across devices:");
+      if (!email) return;
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail || !trimmedEmail.includes("@")) {
+        setCloudStatus(cloudAuthStatus, "email invalid");
+        return;
+      }
+      try {
+        const result = await supabase.auth.signInWithOtp({
+          email: trimmedEmail,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname
+          }
+        });
+        if (result.error) {
+          throw result.error;
+        }
+        setCloudUserStatus(trimmedEmail);
+        setCloudStatus("email sent", "check inbox");
+      } catch (err) {
+        setCloudStatus("email failed", "try again");
+        console.error("Email link sign-in failed", err);
+      }
+    }
+
+    function getAuthRedirectUrl() {
+      const u = new URL(window.location.href);
+      u.hash = "";
+      return u.toString();
+    }
+
+    async function signInWithOAuthProvider(provider) {
+      if (!supabase) {
+        setCloudStatus("disabled", "offline");
+        return;
+      }
+      try {
+        if (authStatus) authStatus.textContent = "Redirecting to " + provider + "...";
+        setCloudStatus("oauth", "redirecting…");
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo: getAuthRedirectUrl() }
+        });
+        if (error) throw error;
+        if (data && data.url) {
+          window.location.assign(data.url);
+        }
+      } catch (err) {
+        if (authStatus) authStatus.textContent = "OAuth failed. Try again.";
+        setCloudStatus("oauth failed", String(err && err.message ? err.message : "try again"));
+        console.error("OAuth sign-in failed", err);
+      }
+    }
+
+    async function requestGmailSummaryCheck() {
+      if (!supabase) {
+        pauseStatus.textContent = "Gmail check unavailable: cloud disabled.";
+        return;
+      }
+      try {
+        const insertResult = await supabase.from(COMMANDS_TABLE).insert({
+          command_type: "gmail_check_request",
+          agent_id: GMAIL_GAME_AGENT_ID,
+          payload: {
+            source_agent_id: GMAIL_SOURCE_AGENT_ID,
+            game_agent_id: GMAIL_GAME_AGENT_ID,
+            window_hours: 24,
+            requested_at: new Date().toISOString(),
+            requested_by: cloudUserStatus
+          },
+          status: "queued"
+        });
+        if (insertResult.error) {
+          throw insertResult.error;
+        }
+        pauseStatus.textContent = "Gmail check queued (24h).";
+      } catch (err) {
+        pauseStatus.textContent = "Gmail check failed to queue.";
+        console.error("Gmail check queue failed", err);
+      }
+    }
+
+    async function initCloudIdentity(options = {}) {
+      const allowAnonymous = options.allowAnonymous !== false;
+      if (!supabase) {
+        setCloudStatus("disabled", "offline");
+        return;
+      }
+      try {
+        let sessionResult = await supabase.auth.getSession();
+        let session = sessionResult.data ? sessionResult.data.session : null;
+        if (!session && allowAnonymous) {
+          const signInResult = await supabase.auth.signInAnonymously();
+          if (signInResult.error) {
+            throw signInResult.error;
+          }
+          session = signInResult.data ? signInResult.data.session : null;
+        }
+        const uid = session && session.user ? session.user.id : "";
+        const email = session && session.user ? session.user.email : "";
+        if (uid) {
+          accountBaseId = uid;
+          activeSaveSlot = normalizeSaveSlot(localStorage.getItem(ACTIVE_SAVE_SLOT_KEY) || activeSaveSlot);
+          playerId = buildSlotPlayerId(activeSaveSlot);
+          localStorage.setItem(WORLD_ACCOUNT_ID_KEY, uid);
+          localStorage.setItem(WORLD_PLAYER_ID_KEY, playerId);
+          setCloudUserStatus(email || uid.slice(0, 8) + "...");
+          setCloudStatus("ok", "ready");
+        } else {
+          setCloudUserStatus("guest");
+          setCloudStatus("failed", "local-only");
+        }
+      } catch (err) {
+        setCloudUserStatus("guest");
+        setCloudStatus("failed", "local-only");
+        console.error("Cloud auth init failed; using local player id", err);
+      }
+    }
+
+    async function syncWorldStateToCloud(payload, sourceLabel) {
+      if (!supabase || !playerId) {
+        setCloudStatus(cloudAuthStatus, "offline");
+        return;
+      }
+      try {
+        const upsertResult = await supabase.from(CLOUD_SAVE_TABLE).upsert({
+            player_id: playerId,
+            save_data: payload,
+            updated_at: new Date(payload.savedAt).toISOString()
+          }, { onConflict: "player_id" });
+        if (upsertResult.error) {
+          throw upsertResult.error;
+        }
+        if (pauseMenuOpen) {
+          pauseStatus.textContent = sourceLabel + ": saved " + payload.npcs.length + " agents (cloud synced).";
+        }
+        setCloudStatus(cloudAuthStatus, "ok @" + new Date().toLocaleTimeString());
+      } catch (err) {
+        setCloudStatus(cloudAuthStatus, "failed");
+        console.error("Cloud save sync failed", err);
+      }
+    }
+
+    async function loadCloudWorldState() {
+      if (!supabase || !playerId) return null;
+      try {
+        const queryResult = await supabase
+          .from(CLOUD_SAVE_TABLE)
+          .select("save_data,updated_at")
+          .eq("player_id", playerId)
+          .maybeSingle();
+        if (queryResult.error) {
+          throw queryResult.error;
+        }
+        const row = queryResult.data;
+        if (row && row.save_data) {
+          setCloudStatus(cloudAuthStatus, "loaded");
+          return row.save_data;
+        }
+        if (activeSaveSlot === "1" && accountBaseId && playerId !== accountBaseId) {
+          const legacyResult = await supabase
+            .from(CLOUD_SAVE_TABLE)
+            .select("save_data,updated_at")
+            .eq("player_id", accountBaseId)
+            .maybeSingle();
+          if (!legacyResult.error && legacyResult.data && legacyResult.data.save_data) {
+            setCloudStatus(cloudAuthStatus, "loaded legacy");
+            return legacyResult.data.save_data;
+          }
+        }
+        setCloudStatus(cloudAuthStatus, "ready");
+        return null;
+      } catch (err) {
+        setCloudStatus(cloudAuthStatus, "load-failed");
+        console.error("Cloud load failed", err);
+        return null;
+      }
+    }
+
+    async function deleteCloudSaveRow(rowPlayerId) {
+      if (!supabase || !rowPlayerId) return { ok: true, skipped: true };
+      const result = await supabase
+        .from(CLOUD_SAVE_TABLE)
+        .delete()
+        .eq("player_id", rowPlayerId);
+      if (result.error) return { ok: false, error: result.error };
+      return { ok: true, skipped: false };
+    }
+
+    async function clearSaveSlot(slot, options = {}) {
+      const normalizedSlot = normalizeSaveSlot(slot);
+      const clearingActiveRunningSlot = gameStarted && !frontDoorOpen && normalizedSlot === activeSaveSlot;
+      if (clearingActiveRunningSlot) {
+        if (settingsStatus) settingsStatus.textContent = "Use Save and Quit first, then clear slot " + normalizedSlot + " from home Settings.";
+        return false;
+      }
+
+      const label = "slot " + normalizedSlot;
+      const confirmed = options.skipConfirm || window.confirm("Clear " + label + "? This removes local and cloud save data for this slot.");
+      if (!confirmed) return false;
+
+      if (settingsStatus) settingsStatus.textContent = "Clearing " + label + "...";
+      localStorage.removeItem(getLocalSaveKey(normalizedSlot));
+      localStorage.removeItem(getLocalFallbackSaveKey(normalizedSlot));
+      if (normalizedSlot === "1") {
+        localStorage.removeItem(WORLD_SAVE_KEY);
+        localStorage.removeItem(WORLD_SAVE_FALLBACK_KEY);
+      }
+
+      const deleteResults = [await deleteCloudSaveRow(buildSlotPlayerId(normalizedSlot))];
+      if (normalizedSlot === "1" && accountBaseId) {
+        deleteResults.push(await deleteCloudSaveRow(accountBaseId));
+      }
+      const failed = deleteResults.find((row) => row && !row.ok);
+      if (failed) {
+        const message = failed.error && failed.error.message ? failed.error.message : "cloud delete blocked";
+        if (settingsStatus) settingsStatus.textContent = "Local " + label + " cleared. Cloud delete failed: " + message;
+        console.error("Cloud save clear failed", failed.error);
+      } else if (settingsStatus) {
+        settingsStatus.textContent = "Cleared " + label + ".";
+      }
+      await refreshHomeSlots();
+      return !failed;
+    }
+
+    async function clearAllSaveSlots() {
+      const clearingActiveRunningSlot = gameStarted && !frontDoorOpen;
+      if (clearingActiveRunningSlot) {
+        if (settingsStatus) settingsStatus.textContent = "Use Save and Quit first, then Clear all slots from home Settings.";
+        return;
+      }
+      if (!window.confirm("Clear all save slots? This removes slots 1, 2, and 3 locally and in cloud storage.")) return;
+      for (const slot of ["1", "2", "3"]) {
+        await clearSaveSlot(slot, { skipConfirm: true });
+      }
+      if (settingsStatus) settingsStatus.textContent = "Cleared all slots.";
+      await refreshHomeSlots();
+    }
+
+    async function getSlotState(slot) {
+      const normalizedSlot = normalizeSaveSlot(slot);
+      const slotPlayerId = buildSlotPlayerId(normalizedSlot);
+      let cloudSave = null;
+      if (supabase && slotPlayerId) {
+        try {
+          const result = await supabase
+            .from(CLOUD_SAVE_TABLE)
+            .select("save_data,updated_at")
+            .eq("player_id", slotPlayerId)
+            .maybeSingle();
+          if (!result.error && result.data) cloudSave = result.data;
+        } catch (_) {}
+      }
+      if (cloudSave && cloudSave.save_data) {
+        return { hasSave: true, data: cloudSave.save_data, updatedAt: cloudSave.updated_at, source: "cloud" };
+      }
+      try {
+        const raw = localStorage.getItem(getLocalSaveKey(normalizedSlot)) || localStorage.getItem(getLocalFallbackSaveKey(normalizedSlot));
+        if (raw) {
+          const data = JSON.parse(raw);
+          return { hasSave: true, data, updatedAt: data.savedAt, source: "local" };
+        }
+      } catch (_) {}
+      return { hasSave: false, data: null, updatedAt: null, source: "empty" };
+    }
+
+    async function getSlotSummary(slot) {
+      const state = await getSlotState(slot);
+      if (!state.hasSave) return "Empty slot\nChoose World 1 or World 2";
+      const count = Array.isArray(state.data.npcs) ? state.data.npcs.length : 0;
+      const map = worldMaps[normalizeWorldMapId(state.data.mapId)] || worldMaps.floating_realm;
+      const updated = state.source === "cloud" && state.updatedAt
+        ? new Date(state.updatedAt).toLocaleString()
+        : state.updatedAt
+          ? new Date(state.updatedAt).toLocaleString()
+          : state.source + " save";
+      return map.name + " / " + count + " agents\n" + updated;
+    }
+
+    async function refreshHomeSlots() {
+      if (homeUserLine) {
+        homeUserLine.textContent = "Signed in as " + cloudUserStatus + ". Choose a save slot.";
+      }
+      for (const slot of ["1", "2", "3"]) {
+        const meta = document.getElementById("slot-meta-" + slot);
+        if (!meta) continue;
+        meta.textContent = "Checking save...";
+        meta.textContent = await getSlotSummary(slot);
+      }
+    }
+
+    function showAuthScreen() {
+      frontDoorOpen = true;
+      document.body.classList.remove("in-game");
+      if (frontdoor) frontdoor.classList.remove("hidden");
+      if (authScreen) authScreen.classList.remove("hidden");
+      if (homeScreen) homeScreen.classList.add("hidden");
+      if (mapScreen) mapScreen.classList.add("hidden");
+    }
+
+    async function showHomeScreen() {
+      frontDoorOpen = true;
+      document.body.classList.remove("in-game");
+      if (frontdoor) frontdoor.classList.remove("hidden");
+      if (authScreen) authScreen.classList.add("hidden");
+      if (homeScreen) homeScreen.classList.remove("hidden");
+      if (mapScreen) mapScreen.classList.add("hidden");
+      await refreshHomeSlots();
+    }
+
+    function showMapScreen(slot) {
+      pendingMapSlot = normalizeSaveSlot(slot);
+      frontDoorOpen = true;
+      document.body.classList.remove("in-game");
+      if (frontdoor) frontdoor.classList.remove("hidden");
+      if (authScreen) authScreen.classList.add("hidden");
+      if (homeScreen) homeScreen.classList.add("hidden");
+      if (mapScreen) mapScreen.classList.remove("hidden");
+      if (mapChoiceLine) mapChoiceLine.textContent = "Slot " + pendingMapSlot + " is empty. Choose the map for this new save.";
+    }
+
+    function showLoadingOverlay(text = "Loading World") {
+      if (!loadingOverlay) return;
+      const label = document.getElementById("loading-text");
+      if (label) label.textContent = text;
+      loadingOverlay.style.display = "grid";
+      loadingOverlay.classList.add("active");
+      loadingOverlay.classList.remove("hidden");
+    }
+
+    function hideLoadingOverlay() {
+      if (!loadingOverlay) return;
+      loadingOverlay.classList.add("hidden");
+      setTimeout(() => {
+        loadingOverlay.classList.remove("active");
+        loadingOverlay.style.display = "none";
+      }, 520);
+    }
+
+    function showAutosaveIndicator() {
+      if (autosaveIndicatorTimer) {
+        clearTimeout(autosaveIndicatorTimer);
+      }
+      autosaveIndicator.classList.add("active");
+      autosaveIndicatorTimer = setTimeout(() => {
+        autosaveIndicator.classList.remove("active");
+        autosaveIndicatorTimer = null;
+      }, 1250);
+    }
+
+    function getNpcBodyMaterial(colorValue) {
+      return new THREE.MeshStandardMaterial({ color: colorValue, roughness: 0.85 });
+    }
+
+    function getColorKey(colorValue) {
+      const idx = npcPalette.indexOf(colorValue);
+      return ["cyan", "amber", "mint", "pink", "violet", "coral", "jade", "azure"][idx] || "unknown";
+    }
+
+    function formatDateMade(ts) {
+      const d = new Date(Number(ts) || Date.now());
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return y + m + day;
+    }
+
+    function getTribeNumber(npc) {
+      const tribe = npcs
+        .filter((n) => n.color === npc.color)
+        .sort((a, b) => a.id - b.id);
+      const index = tribe.findIndex((n) => n.id === npc.id);
+      return index >= 0 ? index + 1 : 1;
+    }
+
+    function buildAgentNickname(npc) {
+      return "agent_" + getColorKey(npc.color) + "_" + getTribeNumber(npc);
+    }
+
+    function buildAgentSku(npc) {
+      const color = getColorKey(npc.color);
+      const tribeNum = getTribeNumber(npc);
+      return color + "_" + color + "_" + tribeNum + "_agent_" + npc.id + "_" + formatDateMade(npc.createdAt);
+    }
+
+    function addNpc(x, z, colorValue, options = {}) {
+      const npc = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.62, 4, 8), getNpcBodyMaterial(colorValue));
+      body.position.y = 0.65;
+      npc.add(body);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 8), npcHeadMat);
+      head.position.y = 1.2;
+      npc.add(head);
+
+      const hat = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.16, 0.12, 8),
+        new THREE.MeshStandardMaterial({ color: 0x27344f, roughness: 0.8 })
+      );
+      hat.position.y = 1.42;
+      npc.add(hat);
+
+      npc.position.set(x, 0, z);
+      npc.rotation.y = Math.random() * Math.PI * 2;
+      npcGroup.add(npc);
+      const nextId = ++npcCounter;
+      npcs.push({
+        id: Number(options.id || nextId),
+        name: options.name || "Agent-" + String(nextId).padStart(2, "0"),
+        mesh: npc,
+        bodyMesh: body,
+        color: colorValue,
+        createdAt: Number(options.createdAt || Date.now()),
+        chatHistory: Array.isArray(options.chatHistory) ? options.chatHistory : [],
+        mirrorManaged: Boolean(options.mirrorManaged),
+        mirrorAgentId: options.mirrorAgentId || "",
+        mirrorRole: options.mirrorRole || "",
+        mirrorTribe: options.mirrorTribe || "",
+        baseY: npc.position.y,
+        seed: Number(options.seed || Math.random() * 100),
+        spin: Number(options.spin || (Math.random() - 0.5) * 0.25)
+      });
+      queueAgentAutoSave("Agent spawn autosave");
+    }
+
+    // Start with zero NPCs; center stand opens 8-color spawn menu (E in range); each color prefers one ring wedge.
+
+    function resetSpawnStandButtonAppearance() {
+      if (!redButton || !redButton.material) return;
+      redButton.material.color.setHex(0xe03737);
+      redButton.material.emissive.setHex(0x4a0808);
+    }
+
+    const stars = new THREE.Group();
+    const starMat = new THREE.MeshBasicMaterial({ color: 0x9cd7ff });
+    for (let i = 0; i < 120; i++) {
+      const star = new THREE.Mesh(new THREE.SphereGeometry(0.09, 5, 4), starMat);
+      const dist = 90 + Math.random() * 60;
+      const ang = Math.random() * Math.PI * 2;
+      const y = 12 + Math.random() * 70;
+      star.position.set(Math.cos(ang) * dist, y, Math.sin(ang) * dist);
+      stars.add(star);
+    }
+    scene.add(stars);
+
+    const clouds = new THREE.Group();
+    scene.add(clouds);
+    const cloudMat = new THREE.MeshBasicMaterial({ color: 0x6a82b9, transparent: true, opacity: 0.24 });
+    for (let i = 0; i < 18; i++) {
+      const cloud = new THREE.Mesh(new THREE.SphereGeometry(2.2 + Math.random() * 2.6, 8, 6), cloudMat);
+      cloud.position.set((Math.random() - 0.5) * 140, 18 + Math.random() * 24, (Math.random() - 0.5) * 140);
+      cloud.scale.y = 0.5 + Math.random() * 0.4;
+      clouds.add(cloud);
+    }
+
+    function setMaterialColor(material, color, emissiveColor) {
+      if (!material) return;
+      if (material.color) material.color.setHex(color);
+      if (material.emissive && typeof emissiveColor === "number") material.emissive.setHex(emissiveColor);
+    }
+
+    function applyWorldMapTheme(mapId) {
+      activeWorldMapId = normalizeWorldMapId(mapId);
+      const theme = worldMaps[activeWorldMapId];
+      scene.fog.color.setHex(theme.fog);
+      setMaterialColor(sky.material, theme.sky);
+      setMaterialColor(islandTop.material, theme.islandTop);
+      setMaterialColor(floor.material, theme.floor);
+      setMaterialColor(islandBody.material, theme.islandBody);
+      setMaterialColor(islandBase.material, theme.islandBase);
+      setMaterialColor(leafMat, theme.leaves);
+      setMaterialColor(crystalMat, theme.crystals, theme.crystalGlow);
+      setMaterialColor(borderMat, theme.border);
+      setMaterialColor(cloudMat, theme.clouds);
+      setMaterialColor(starMat, theme.stars);
+      setMaterialColor(waterfallMat, theme.waterfall);
+      document.body.dataset.worldMap = activeWorldMapId;
+    }
+
+    const keys = new Set();
+    const velocity = new THREE.Vector3();
+    const move = new THREE.Vector3();
+    let yaw = 0;
+    let pitch = 0;
+    let onGround = true;
+    const gravity = 22;
+    const moveSpeed = 7.5;
+    const jumpSpeed = 8.5;
+    const borderLimit = 12.3;
+    const TALK_RANGE = 3.55;
+    let talkCandidatesSignature = "";
+    /** Stable id: mirrorAgentId for mirrored NPCs, else "local:"+id — survives mirror respawns */
+    let talkFocusMirrorId = "";
+    const BUTTON_INTERACT_RANGE = 2.6;
+    const TERMINAL_INTERACT_RANGE = 2.6;
+    let handSlot = 1;
+
+    function updateHandSlotVisuals() {
+      heirloomPivot.visible = handSlot === 2;
+      staffMagicGroup.visible = handSlot === 2;
+    }
+
+    function getForwardXZ() {
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+      else forward.normalize();
+      return forward;
+    }
+
+    function getNpcTalkCandidates() {
+      const cx = camera.position.x;
+      const cz = camera.position.z;
+      const forward = getForwardXZ();
+      const list = [];
+      for (const npc of npcs) {
+        const nx = npc.mesh.position.x;
+        const nz = npc.mesh.position.z;
+        const dx = nx - cx;
+        const dz = nz - cz;
+        const dist = Math.hypot(dx, dz);
+        if (dist > TALK_RANGE) continue;
+        const toLen = Math.hypot(dx, dz) || 1e-6;
+        const toX = dx / toLen;
+        const toZ = dz / toLen;
+        const facing = forward.x * toX + forward.z * toZ;
+        list.push({ npc, dist, facing });
+      }
+      const facingTieEps = 0.12;
+      list.sort((a, b) => {
+        if (Math.abs(a.facing - b.facing) > facingTieEps) return b.facing - a.facing;
+        if (a.dist !== b.dist) return a.dist - b.dist;
+        if (b.facing !== a.facing) return b.facing - a.facing;
+        return npcStableTalkKey(a.npc).localeCompare(npcStableTalkKey(b.npc));
+      });
+      return list;
+    }
+
+    function normalizeMirrorAgentId(id) {
+      return String(id == null ? "" : id).trim();
+    }
+
+    function npcStableTalkKey(npc) {
+      if (!npc) return "";
+      const mid = normalizeMirrorAgentId(npc.mirrorAgentId);
+      if (mid) return mid;
+      return "local:" + npc.id;
+    }
+
+    function updateTalkCandidateSignature(candidates) {
+      const sig = candidates
+        .map((c) => npcStableTalkKey(c.npc))
+        .sort()
+        .join("|");
+      if (sig !== talkCandidatesSignature) {
+        talkCandidatesSignature = sig;
+        if (!candidates.length) {
+          talkFocusMirrorId = "";
+        } else if (talkFocusMirrorId && !candidates.some((c) => npcStableTalkKey(c.npc) === talkFocusMirrorId)) {
+          talkFocusMirrorId = "";
+        }
+      }
+    }
+
+    function pickTalkCandidateEntry(candidates) {
+      if (!candidates.length) return null;
+      if (talkFocusMirrorId) {
+        const hit = candidates.find((c) => npcStableTalkKey(c.npc) === talkFocusMirrorId);
+        if (hit) return hit;
+      }
+      const best = candidates[0];
+      talkFocusMirrorId = npcStableTalkKey(best.npc);
+      return best;
+    }
+
+    function getNpcInteractionTarget() {
+      const candidates = getNpcTalkCandidates();
+      updateTalkCandidateSignature(candidates);
+      if (!candidates.length) {
+        return { nearest: null, nearestDist: Infinity, candidates: [] };
+      }
+      const pick = pickTalkCandidateEntry(candidates);
+      return { nearest: pick.npc, nearestDist: pick.dist, candidates };
+    }
+
+    function getNearestNpcWithDistance() {
+      const t = getNpcInteractionTarget();
+      if (t.nearest) return { nearest: t.nearest, nearestDist: t.nearestDist };
+      let nearest = null;
+      let nearestDist = Infinity;
+      for (const npc of npcs) {
+        const dx = camera.position.x - npc.mesh.position.x;
+        const dz = camera.position.z - npc.mesh.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearest = npc;
+        }
+      }
+      return { nearest, nearestDist };
+    }
+
+    function getWorldPointFromLocal(mesh, localOffset) {
+      return localOffset.clone().applyMatrix4(mesh.matrixWorld);
+    }
+
+    function getDistanceToButtonInteraction() {
+      const point = getWorldPointFromLocal(buttonStation.stand, buttonInteractionOffset);
+      return Math.hypot(camera.position.x - point.x, camera.position.z - point.z);
+    }
+
+    function getDistanceToTerminalInteraction() {
+      const point = getWorldPointFromLocal(terminalStation.mesh, terminalStation.interactionOffset);
+      return Math.hypot(camera.position.x - point.x, camera.position.z - point.z);
+    }
+
+    function closeSpawnUI() {
+      spawnMenuOpen = false;
+      spawnUI.style.display = "none";
+      crosshair.style.display = "block";
+      // #region agent log
+      debugLog("H2", "MERCURY_HTML_GAME.html:closeSpawnUI", "Spawn UI closed", { spawnMenuOpen, chatOpen, pointerLocked: document.pointerLockElement === canvas });
+      // #endregion
+    }
+
+    function closePauseMenu() {
+      pauseMenuOpen = false;
+      pauseUI.style.display = "none";
+      pauseStatus.textContent = "";
+      if (!spawnMenuOpen && !chatOpen && !frontDoorOpen) {
+        crosshair.style.display = "block";
+      }
+    }
+
+    function openSettingsMenu() {
+      settingsOpen = true;
+      settingsUI.style.display = "block";
+      crosshair.style.display = "none";
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    }
+
+    function closeSettingsMenu() {
+      settingsOpen = false;
+      settingsUI.style.display = "none";
+      if (settingsStatus) settingsStatus.textContent = "";
+      if (!frontDoorOpen && !spawnMenuOpen && !chatOpen && !pauseMenuOpen && !deleteConfirmOpen && !recoverMenuOpen) {
+        crosshair.style.display = "block";
+      }
+    }
+
+    function closeRecoverMenu() {
+      recoverMenuOpen = false;
+      recoverUI.style.display = "none";
+      recoverList.innerHTML = "";
+      if (!frontDoorOpen && !spawnMenuOpen && !chatOpen && !pauseMenuOpen && !deleteConfirmOpen) {
+        crosshair.style.display = "block";
+      }
+    }
+
+    function renderRecoverList() {
+      const mirroredAgents = npcs
+        .filter((npc) => npc.mirrorManaged && normalizeMirrorAgentId(npc.mirrorAgentId))
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      const activeNames = mirroredAgents.map((npc) => npc.name || buildAgentNickname(npc)).filter(Boolean);
+      activeAgentSummary.textContent = activeNames.length > 0
+        ? "Active mirrored agents: " + activeNames.length
+        : "Active mirrored agents: none";
+
+      agentRegistryList.innerHTML = "";
+      if (mirroredAgents.length === 0) {
+        const emptyActive = document.createElement("div");
+        emptyActive.id = "agent-registry-empty";
+        emptyActive.textContent = "No mirrored agents are active on the map yet.";
+        agentRegistryList.appendChild(emptyActive);
+      } else {
+        for (const npc of mirroredAgents) {
+          const row = document.createElement("div");
+          row.className = "registry-row";
+          const nick = document.createElement("div");
+          nick.className = "registry-nick";
+          nick.textContent = buildAgentNickname(npc);
+          const sku = document.createElement("div");
+          sku.className = "registry-sku";
+          sku.textContent = (npc.mirrorRole || "agent") + " / " + (npc.mirrorTribe || "mirror") + " / on map";
+          row.appendChild(nick);
+          row.appendChild(sku);
+          agentRegistryList.appendChild(row);
+        }
+      }
+
+      recoverList.innerHTML = "";
+      if (deletedAgents.length === 0) {
+        const empty = document.createElement("div");
+        empty.id = "recover-empty";
+        empty.textContent = "No deleted agents available to recover.";
+        recoverList.appendChild(empty);
+        return;
+      }
+      for (let i = deletedAgents.length - 1; i >= 0; i--) {
+        const row = deletedAgents[i];
+        const item = document.createElement("div");
+        item.className = "recover-item";
+        const label = document.createElement("div");
+        label.textContent = row.name + " (" + row.id + ")";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "recover-btn";
+        btn.textContent = "Recover";
+        btn.addEventListener("click", () => {
+          addNpc(row.x, row.z, row.color);
+          const npc = npcs[npcs.length - 1];
+          npc.id = row.id;
+          npc.name = row.name;
+          npc.createdAt = Number(row.createdAt || Date.now());
+          npc.chatHistory = Array.isArray(row.chatHistory) ? row.chatHistory : [];
+          npc.mesh.rotation.y = row.rotY || npc.mesh.rotation.y;
+          npc.seed = row.seed || npc.seed;
+          npc.spin = row.spin || npc.spin;
+          npc.mirrorManaged = Boolean(row.mirrorManaged);
+          npc.mirrorAgentId = row.mirrorAgentId || "";
+          npc.mirrorRole = row.mirrorRole || "";
+          npc.mirrorTribe = row.mirrorTribe || "";
+          deletedAgents.splice(i, 1);
+          queueAgentAutoSave("Agent recover autosave");
+          renderRecoverList();
+        });
+        item.appendChild(label);
+        item.appendChild(btn);
+        recoverList.appendChild(item);
+      }
+    }
+
+    function openRecoverMenu() {
+      recoverMenuOpen = true;
+      recoverUI.style.display = "block";
+      crosshair.style.display = "none";
+      renderRecoverList();
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    }
+
+    function closeDeleteConfirm() {
+      deleteConfirmOpen = false;
+      pendingDeleteNpc = null;
+      deleteUI.style.display = "none";
+      if (!spawnMenuOpen && !chatOpen && !pauseMenuOpen) {
+        crosshair.style.display = "block";
+      }
+    }
+
+    function openDeleteConfirm(npc) {
+      if (!npc) return;
+      pendingDeleteNpc = npc;
+      deleteConfirmOpen = true;
+      deleteText.textContent = "Delete " + npc.name + " from the map?";
+      deleteUI.style.display = "block";
+      crosshair.style.display = "none";
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    }
+
+    function deleteNpcById(npcId, reason = "manual") {
+      const idx = npcs.findIndex((n) => n.id === npcId);
+      if (idx < 0) return;
+      const target = npcs[idx];
+      deletedAgents.push({
+        id: target.id,
+        name: target.name,
+        color: target.color,
+        createdAt: target.createdAt,
+        chatHistory: Array.isArray(target.chatHistory) ? target.chatHistory : [],
+        x: Number(target.mesh.position.x.toFixed(4)),
+        z: Number(target.mesh.position.z.toFixed(4)),
+        rotY: Number(target.mesh.rotation.y.toFixed(4)),
+        seed: Number(target.seed.toFixed(6)),
+        spin: Number(target.spin.toFixed(6)),
+        mirrorManaged: Boolean(target.mirrorManaged),
+        mirrorAgentId: target.mirrorAgentId || "",
+        mirrorRole: target.mirrorRole || "",
+        mirrorTribe: target.mirrorTribe || "",
+        deletedReason: reason
+      });
+      npcGroup.remove(target.mesh);
+      if (activeNpc && activeNpc.id === npcId) {
+        closeChatUI();
+      }
+      npcs.splice(idx, 1);
+      nearestNpc = null;
+      queueAgentAutoSave("Agent delete autosave");
+    }
+
+    function purgeLegacyLocalNpc(npcId) {
+      const idx = npcs.findIndex((n) => n.id === npcId);
+      if (idx < 0) return;
+      const target = npcs[idx];
+      npcGroup.remove(target.mesh);
+      if (activeNpc && activeNpc.id === npcId) {
+        closeChatUI();
+      }
+      npcs.splice(idx, 1);
+      nearestNpc = null;
+    }
+
+    function purgeNpcSilently(npcId) {
+      const idx = npcs.findIndex((n) => n.id === npcId);
+      if (idx < 0) return;
+      const target = npcs[idx];
+      npcGroup.remove(target.mesh);
+      if (activeNpc && activeNpc.id === npcId) {
+        closeChatUI();
+      }
+      npcs.splice(idx, 1);
+      nearestNpc = null;
+    }
+
+    function openPauseMenu() {
+      pauseMenuOpen = true;
+      pauseUI.style.display = "block";
+      crosshair.style.display = "none";
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    }
+
+    function resetWorldForLoad() {
+      for (const npc of [...npcs]) {
+        purgeNpcSilently(npc.id);
+      }
+      deletedAgents.length = 0;
+      activeNpc = null;
+      nearestNpc = null;
+      pendingDeleteNpc = null;
+      npcCounter = 0;
+      closeChatUI();
+      closeDeleteConfirm();
+      closeRecoverMenu();
+      closeSpawnUI();
+    }
+
+    function buildWorldPayload() {
+      return {
+        savedAt: Date.now(),
+        mapId: activeWorldMapId,
+        npcCounter,
+        npcs: npcs.map((npc) => ({
+          id: npc.id,
+          name: npc.name,
+          color: npc.color,
+          createdAt: Number(npc.createdAt || Date.now()),
+          chatHistory: Array.isArray(npc.chatHistory) ? npc.chatHistory : [],
+          x: Number(npc.mesh.position.x.toFixed(4)),
+          z: Number(npc.mesh.position.z.toFixed(4)),
+          rotY: Number(npc.mesh.rotation.y.toFixed(4)),
+          seed: Number(npc.seed.toFixed(6)),
+          spin: Number(npc.spin.toFixed(6)),
+          mirrorManaged: Boolean(npc.mirrorManaged),
+          mirrorAgentId: npc.mirrorAgentId || "",
+          mirrorRole: npc.mirrorRole || "",
+          mirrorTribe: npc.mirrorTribe || ""
+        })),
+        deletedAgents: deletedAgents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          color: agent.color,
+          createdAt: Number(agent.createdAt || Date.now()),
+          chatHistory: Array.isArray(agent.chatHistory) ? agent.chatHistory : [],
+          x: Number(agent.x),
+          z: Number(agent.z),
+          rotY: Number(agent.rotY || 0),
+          seed: Number(agent.seed || 0),
+          spin: Number(agent.spin || 0),
+          mirrorManaged: Boolean(agent.mirrorManaged),
+          mirrorAgentId: agent.mirrorAgentId || "",
+          mirrorRole: agent.mirrorRole || "",
+          mirrorTribe: agent.mirrorTribe || ""
+        }))
+      };
+    }
+
+    function persistWorldState(sourceLabel) {
+      const payload = buildWorldPayload();
+      const serialized = JSON.stringify(payload);
+      try {
+        localStorage.setItem(WORLD_SAVE_KEY, serialized);
+        localStorage.setItem(WORLD_SAVE_FALLBACK_KEY, serialized);
+        localStorage.setItem(getLocalSaveKey(activeSaveSlot), serialized);
+        localStorage.setItem(getLocalFallbackSaveKey(activeSaveSlot), serialized);
+        lastSavedAt = payload.savedAt;
+        lastSaveError = "";
+        if (pauseMenuOpen) {
+          pauseStatus.textContent = sourceLabel + ": saved " + payload.npcs.length + " agents.";
+        }
+      } catch (err) {
+        lastSaveError = err instanceof Error ? err.message : String(err);
+        if (pauseMenuOpen) {
+          pauseStatus.textContent = sourceLabel + " failed: " + lastSaveError;
+        }
+        console.error("Save failed", err);
+      }
+      syncWorldStateToCloud(payload, sourceLabel);
+      return payload;
+    }
+
+    function queueAgentAutoSave(sourceLabel = "Agent autosave") {
+      if (agentSaveTimer) clearTimeout(agentSaveTimer);
+      agentSaveTimer = setTimeout(() => {
+        persistWorldState(sourceLabel);
+        showAutosaveIndicator();
+        agentSaveTimer = null;
+      }, 250);
+    }
+
+    function saveWorldState() {
+      persistWorldState("Manual save");
+    }
+
+    function autoSaveWorldState() {
+      persistWorldState("Autosave");
+      showAutosaveIndicator();
+    }
+
+    function exitGame() {
+      persistWorldState("Exit save");
+      pauseStatus.textContent = "Saved.";
+      closePauseMenu();
+      frontDoorOpen = true;
+      gameStarted = false;
+      document.body.classList.remove("in-game");
+      showHomeScreen();
+    }
+
+    function applyLoadedWorldState(data) {
+      try {
+        if (!data || !Array.isArray(data.npcs)) return;
+        applyWorldMapTheme(data.mapId || activeWorldMapId);
+        npcCounter = Number(data.npcCounter || 0);
+        for (const row of data.npcs) {
+          if (!npcPalette.includes(row.color)) continue;
+          addNpc(row.x, row.z, row.color);
+          const npc = npcs[npcs.length - 1];
+          npc.id = Number(row.id || npc.id);
+          npc.name = row.name || npc.name;
+          npc.createdAt = Number(row.createdAt || Date.now());
+          npc.chatHistory = Array.isArray(row.chatHistory) ? row.chatHistory : [];
+          npc.mesh.rotation.y = Number(row.rotY || npc.mesh.rotation.y);
+          npc.seed = Number(row.seed || npc.seed);
+          npc.spin = Number(row.spin || npc.spin);
+            npc.mirrorManaged = Boolean(row.mirrorManaged);
+            npc.mirrorAgentId = row.mirrorAgentId || "";
+            npc.mirrorRole = row.mirrorRole || "";
+            npc.mirrorTribe = row.mirrorTribe || "";
+        }
+        if (Array.isArray(data.deletedAgents)) {
+          deletedAgents.length = 0;
+          for (const row of data.deletedAgents) {
+            deletedAgents.push({
+              id: Number(row.id),
+              name: row.name || "Agent",
+              color: row.color,
+              createdAt: Number(row.createdAt || Date.now()),
+              chatHistory: Array.isArray(row.chatHistory) ? row.chatHistory : [],
+              x: Number(row.x || 0),
+              z: Number(row.z || 0),
+              rotY: Number(row.rotY || 0),
+              seed: Number(row.seed || 0),
+              spin: Number(row.spin || 0),
+              mirrorManaged: Boolean(row.mirrorManaged),
+              mirrorAgentId: row.mirrorAgentId || "",
+              mirrorRole: row.mirrorRole || "",
+              mirrorTribe: row.mirrorTribe || ""
+            });
+          }
+        }
+      } catch (_) {
+        // Keep running even if save data is corrupted.
+      }
+    }
+
+    async function loadWorldState() {
+      const cloudData = await loadCloudWorldState();
+      if (cloudData && Array.isArray(cloudData.npcs)) {
+        applyLoadedWorldState(cloudData);
+        return;
+      }
+      const raw =
+        localStorage.getItem(getLocalSaveKey(activeSaveSlot)) ||
+        localStorage.getItem(getLocalFallbackSaveKey(activeSaveSlot)) ||
+        (activeSaveSlot === "1" ? (localStorage.getItem(WORLD_SAVE_KEY) || localStorage.getItem(WORLD_SAVE_FALLBACK_KEY)) : null);
+      if (!raw) return;
+      try {
+        const localData = JSON.parse(raw);
+        applyLoadedWorldState(localData);
+      } catch (_) {
+        // Keep running even if local save data is corrupted.
+      }
+    }
+
+    function openSpawnUI() {
+      spawnMenuOpen = true;
+      spawnUI.style.display = "block";
+      crosshair.style.display = "none";
+      // #region agent log
+      debugLog("H2", "MERCURY_HTML_GAME.html:openSpawnUI", "Spawn UI opened", { spawnMenuOpen, chatOpen, pointerLocked: document.pointerLockElement === canvas });
+      // #endregion
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    }
+
+    function addChatLine(author, text) {
+      const p = document.createElement("p");
+      p.className = "chat-line";
+      p.textContent = author + ": " + text;
+      chatLog.appendChild(p);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function appendChatEntry(npc, author, text) {
+      if (!npc || !Array.isArray(npc.chatHistory)) return;
+      npc.chatHistory.push({ author, text });
+      if (npc.chatHistory.length > 120) {
+        npc.chatHistory = npc.chatHistory.slice(-120);
+      }
+      queueAgentAutoSave("Agent chat autosave");
+    }
+
+    function npcReply(npc, userText) {
+      const text = userText.toLowerCase();
+      if (text.includes("hello") || text.includes("hi")) return "Hey. I am on patrol in this floating realm.";
+      if (text.includes("spawn")) return "Stand at the red island button and press E — pick one of eight team colors; each has its own wedge around the island.";
+      if (text.includes("color") || text.includes("colour")) return "My squad groups by color for better formation.";
+      if (text.includes("help")) return "Try exploring, spawning teams, and talking to nearby agents.";
+      const generic = [
+        "Skies are stable. Border shield is holding.",
+        "Realm status green. No anomalies near the edge.",
+        "I can regroup with my color team when new agents spawn.",
+        "You can chat with any nearby agent now."
+      ];
+      return generic[Math.floor(Math.random() * generic.length)];
+    }
+
+    function closeChatUI() {
+      chatOpen = false;
+      activeNpc = null;
+      talkFocusMirrorId = "";
+      chatUI.style.display = "none";
+      chatLog.innerHTML = "";
+      crosshair.style.display = "block";
+    }
+
+    function openChatUI(npc) {
+      if (!npc) return;
+      const mid = normalizeMirrorAgentId(npc.mirrorAgentId);
+      // Prefer the exact NPC instance the player targeted (same id), so side-by-side
+      // mirror agents with the same body colour still chat with the right capsule.
+      const stableNpc =
+        npcs.find((n) => n.id === npc.id) ||
+        (mid ? npcs.find((n) => normalizeMirrorAgentId(n.mirrorAgentId) === mid) : null) ||
+        npc;
+      chatOpen = true;
+      activeNpc = stableNpc;
+      talkFocusMirrorId = npcStableTalkKey(stableNpc);
+      chatUI.style.display = "block";
+      chatHead.textContent = "Chatting with " + stableNpc.name;
+      chatLog.innerHTML = "";
+      if (!Array.isArray(stableNpc.chatHistory) || stableNpc.chatHistory.length === 0) {
+        const greeting = "Ready to chat. Ask me anything.";
+        addChatLine(stableNpc.name, greeting);
+        appendChatEntry(stableNpc, stableNpc.name, greeting);
+      } else {
+        for (const entry of stableNpc.chatHistory) {
+          addChatLine(entry.author, entry.text);
+        }
+      }
+      crosshair.style.display = "none";
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+      chatInput.focus();
+    }
+
+    function spawnNpcNearButton(colorValue) {
+      const colorIndex = Math.max(0, npcPalette.indexOf(colorValue));
+      const wedgeSpan = (Math.PI * 2) / npcPalette.length;
+      const minSpacing = 2.35;
+      const outerSpawnRadius = 11.1;
+      const innerSpawnRadius = 8.3;
+      const buttonNoSpawnRadius = 3.9;
+      const sameColorNpcs = npcs.filter((npc) => npc.color === colorValue);
+      let chosen = null;
+
+      for (let i = 0; i < 70; i++) {
+        let x;
+        let z;
+        let fromCluster = false;
+
+        if (sameColorNpcs.length > 0 && Math.random() < 0.88) {
+          fromCluster = true;
+          const anchor = sameColorNpcs[Math.floor(Math.random() * sameColorNpcs.length)].mesh.position;
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 1.9 + Math.random() * 1.6;
+          x = anchor.x + Math.cos(angle) * distance;
+          z = anchor.z + Math.sin(angle) * distance;
+        } else {
+          const angleMid = colorIndex * wedgeSpan + wedgeSpan * 0.5;
+          const angle = angleMid + (Math.random() - 0.5) * wedgeSpan * 0.92;
+          const distance = innerSpawnRadius + Math.random() * (outerSpawnRadius - innerSpawnRadius);
+          x = Math.cos(angle) * distance;
+          z = Math.sin(angle) * distance;
+        }
+
+        let valid = true;
+        if (!fromCluster && angleBucketForPalette(x, z) !== colorIndex) {
+          valid = false;
+        }
+
+        if (Math.hypot(x - buttonStation.stand.position.x, z - buttonStation.stand.position.z) < buttonNoSpawnRadius) {
+          valid = false;
+        }
+
+        const centerDist = Math.hypot(x, z);
+        if (centerDist < innerSpawnRadius || centerDist > outerSpawnRadius) {
+          valid = false;
+        }
+
+        for (const tree of treeSpots) {
+          const dxTree = x - tree.x;
+          const dzTree = z - tree.z;
+          if (Math.hypot(dxTree, dzTree) < tree.r + 1.25) {
+            valid = false;
+            break;
+          }
+          // "Respect zone": avoid spawning in front of tree (toward island center side).
+          const candidateAngle = Math.atan2(z, x);
+          if (
+            angleDiff(candidateAngle, tree.ang) < 0.26 &&
+            centerDist < tree.distFromCenter + 0.55 &&
+            centerDist > tree.distFromCenter - 2.7
+          ) {
+            valid = false;
+            break;
+          }
+        }
+
+        for (const npc of npcs) {
+          const dx = x - npc.mesh.position.x;
+          const dz = z - npc.mesh.position.z;
+          if (Math.hypot(dx, dz) < minSpacing) {
+            valid = false;
+            break;
+          }
+        }
+
+        if (valid) {
+          chosen = { x, z };
+          break;
+        }
+      }
+
+      if (!chosen) {
+        const angle = colorIndex * wedgeSpan + wedgeSpan * 0.5;
+        const distance = 9.2 + Math.random() * 1.3;
+        chosen = {
+          x: Math.cos(angle) * distance,
+          z: Math.sin(angle) * distance
+        };
+      }
+
+      const radius = Math.hypot(chosen.x, chosen.z);
+      if (radius > 11.2) {
+        const scale = 11.2 / radius;
+        chosen.x *= scale;
+        chosen.z *= scale;
+      }
+
+      addNpc(chosen.x, chosen.z, colorValue);
+    }
+
+    let mirrorIngestBusy = false;
+
+    async function ingestPaperclipMirror() {
+      if (!supabase) {
+        setMirrorStatus("disabled");
+        return;
+      }
+      if (mirrorIngestBusy) return;
+      mirrorIngestBusy = true;
+      try {
+        const mirrorResult = await supabase
+          .from(MIRROR_TABLE)
+          .select("agent_id,display_name,role,tribe,color,active,updated_at,source_workplace")
+          .eq("active", true)
+          .eq("source_workplace", "mercury-hq-game");
+        if (mirrorResult.error) {
+          throw mirrorResult.error;
+        }
+        const rows = Array.isArray(mirrorResult.data) ? mirrorResult.data : [];
+        // Cleanup old local placeholder agents (Agent-01, Agent-03, etc.) once mirror is active.
+        for (const npc of [...npcs]) {
+          const name = String(npc.name || "").trim();
+          const isLegacyName = /^agent[-_ ]?\d+$/i.test(name);
+          if (!npc.mirrorManaged && isLegacyName) {
+            purgeLegacyLocalNpc(npc.id);
+          }
+        }
+        const isSpawnableMirrorRow = (row) => {
+          const name = (row && row.display_name ? String(row.display_name) : "").trim();
+          if (!name) return false;
+          if (name.toLowerCase() === "unnamed agent") return false;
+          if (name.toUpperCase().startsWith("CAT_")) return false;
+          if (name.toUpperCase().startsWith("GAME_")) return false;
+          const key = name.toLowerCase();
+          if (key === "tutorial agent" || key === "cto" || key === "game ic") return false;
+          return true;
+        };
+        const spawnRows = rows.filter(isSpawnableMirrorRow);
+        const activeById = new Map();
+        for (const row of spawnRows) {
+          const aid = normalizeMirrorAgentId(row && row.agent_id);
+          if (aid) activeById.set(aid, row);
+        }
+
+        // Hard reset map NPCs to mirror bottom-row roster only.
+        for (const npc of [...npcs]) {
+          const nid = normalizeMirrorAgentId(npc.mirrorAgentId);
+          if (!npc.mirrorManaged || !activeById.has(nid)) {
+            purgeNpcSilently(npc.id);
+          }
+        }
+
+        const sectorSlotCounters = new Map();
+        let spawnedOrUpdatedCount = 0;
+        for (const row of spawnRows) {
+          const rowId = normalizeMirrorAgentId(row.agent_id);
+          if (!rowId) continue;
+          let npc = npcs.find(
+            (n) => n.mirrorManaged && normalizeMirrorAgentId(n.mirrorAgentId) === rowId
+          );
+          const sectorIndex = getMirrorSectorIndex(row.display_name, row.role, row.tribe);
+          const slotIndex = Number(sectorSlotCounters.get(sectorIndex) || 0);
+          sectorSlotCounters.set(sectorIndex, slotIndex + 1);
+          const slotPos = getMirrorSlotPosition(sectorIndex, slotIndex);
+          const colorValue = getColorByMirrorDepartment(row.display_name, row.role, row.tribe)
+            || parseMirrorColor(row.color)
+            || getColorByTribe(row.tribe);
+          if (!npc) {
+            addNpc(slotPos.x, slotPos.z, colorValue, {
+              mirrorManaged: true,
+              mirrorAgentId: rowId,
+              mirrorRole: row.role || "",
+              mirrorTribe: row.tribe || ""
+            });
+            npc = npcs[npcs.length - 1];
+            if (!npc) continue;
+            npc.mirrorManaged = true;
+            npc.mirrorAgentId = rowId;
+          }
+          if (npc.mesh && npc.mesh.position) {
+            npc.mesh.position.x = slotPos.x;
+            npc.mesh.position.z = slotPos.z;
+          }
+          npc.mirrorSpawnSector = sectorIndex;
+          npc.name = row.display_name || npc.name;
+          npc.mirrorRole = row.role || "";
+          npc.mirrorTribe = row.tribe || "";
+          npc.color = colorValue;
+          if (npc.bodyMesh && npc.bodyMesh.material && npc.bodyMesh.material.color) {
+            npc.bodyMesh.material.color.setHex(colorValue);
+          }
+          spawnedOrUpdatedCount += 1;
+        }
+        const mirroredNpcs = npcs.filter((n) => n.mirrorManaged && normalizeMirrorAgentId(n.mirrorAgentId));
+        for (const npc of mirroredNpcs) {
+          if (!activeById.has(normalizeMirrorAgentId(npc.mirrorAgentId))) {
+            purgeNpcSilently(npc.id);
+          }
+        }
+        if (chatOpen && activeNpc) {
+          const mid = normalizeMirrorAgentId(activeNpc.mirrorAgentId);
+          if (mid) {
+            const rebound = npcs.find((n) => normalizeMirrorAgentId(n.mirrorAgentId) === mid);
+            if (rebound) {
+              activeNpc = rebound;
+              chatHead.textContent = "Chatting with " + rebound.name;
+            } else closeChatUI();
+          }
+        }
+        setMirrorStatus("ok (" + spawnedOrUpdatedCount + ") @" + new Date().toLocaleTimeString());
+      } catch (err) {
+        console.error("Mirror ingestion failed", err);
+        setMirrorStatus("failed");
+      } finally {
+        mirrorIngestBusy = false;
+      }
+    }
+
+    for (const color of npcPalette) {
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "swatch";
+      swatch.style.background = "#" + color.toString(16).padStart(6, "0");
+      swatch.addEventListener("click", () => {
+        spawnNpcNearButton(color);
+        closeSpawnUI();
+      });
+      swatches.appendChild(swatch);
+    }
+    resetSpawnStandButtonAppearance();
+    spawnClose.addEventListener("click", closeSpawnUI);
+    chatClose.addEventListener("click", closeChatUI);
+    pauseResume.addEventListener("click", closePauseMenu);
+    pauseSettings.addEventListener("click", () => {
+      closePauseMenu();
+      openSettingsMenu();
+    });
+    pauseSaveQuit.addEventListener("click", exitGame);
+    settingsClose.addEventListener("click", closeSettingsMenu);
+    for (const button of clearSlotButtons) {
+      button.addEventListener("click", () => clearSaveSlot(button.dataset.clearSlot || "1"));
+    }
+    if (clearAllSlotsButton) {
+      clearAllSlotsButton.addEventListener("click", clearAllSaveSlots);
+    }
+    mouseSensitivityInput.addEventListener("input", () => {
+      mouseSensitivity = Number(mouseSensitivityInput.value || 1);
+      persistSettings();
+    });
+    reducedMotionInput.addEventListener("change", () => {
+      calmTitleBackground = Boolean(reducedMotionInput.checked);
+      persistSettings();
+    });
+    recoverClose.addEventListener("click", closeRecoverMenu);
+    deleteConfirm.addEventListener("click", () => {
+      if (!pendingDeleteNpc) return;
+      deleteNpcById(pendingDeleteNpc.id);
+      closeDeleteConfirm();
+    });
+    deleteCancel.addEventListener("click", closeDeleteConfirm);
+    chatForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!activeNpc) return;
+      const message = chatInput.value.trim();
+      if (!message) return;
+      addChatLine("You", message);
+      appendChatEntry(activeNpc, "You", message);
+      const reply = npcReply(activeNpc, message);
+      addChatLine(activeNpc.name, reply);
+      appendChatEntry(activeNpc, activeNpc.name, reply);
+      chatInput.value = "";
+      chatInput.focus();
+    });
+
+    const clampPitch = (value) => Math.max(-1.47, Math.min(1.47, value));
+    document.addEventListener("click", () => {
+      // #region agent log
+      debugLog("H5", "MERCURY_HTML_GAME.html:click", "Document click observed", { spawnMenuOpen, chatOpen, pointerLocked: document.pointerLockElement === canvas });
+      // #endregion
+      if (frontDoorOpen || spawnMenuOpen || chatOpen || pauseMenuOpen || deleteConfirmOpen || recoverMenuOpen || settingsOpen) return;
+      if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+    });
+
+    document.addEventListener("mousemove", (event) => {
+      if (document.pointerLockElement !== canvas) return;
+      yaw -= event.movementX * 0.0021 * mouseSensitivity;
+      pitch = clampPitch(pitch - event.movementY * 0.0021 * mouseSensitivity);
+      camera.rotation.set(pitch, yaw, 0, "YXZ");
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const target = event.target;
+      const isTypingTarget = target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+      if (isTypingTarget) {
+        if (event.code === "Escape") {
+          if (spawnMenuOpen) closeSpawnUI();
+          else if (chatOpen) closeChatUI();
+          else if (pauseMenuOpen) closePauseMenu();
+          else if (deleteConfirmOpen) closeDeleteConfirm();
+          else if (recoverMenuOpen) closeRecoverMenu();
+          else if (settingsOpen) closeSettingsMenu();
+        }
+        return;
+      }
+      if (frontDoorOpen) return;
+      if (event.code === "KeyE" || event.code === "Escape" || event.code === "KeyF") {
+        // #region agent log
+        debugLog("H8", "MERCURY_HTML_GAME.html:keydown", "Tracked key pressed", {
+          code: event.code,
+          activeTag: document.activeElement ? document.activeElement.tagName : null,
+          spawnMenuOpen,
+          chatOpen
+        });
+        // #endregion
+      }
+      keys.add(event.code);
+      if (event.code === "Digit1") {
+        handSlot = 1;
+        updateHandSlotVisuals();
+        return;
+      }
+      if (event.code === "Digit2") {
+        handSlot = 2;
+        updateHandSlotVisuals();
+        return;
+      }
+      if (event.code === "KeyE") {
+        // #region agent log
+        debugLog("H1", "MERCURY_HTML_GAME.html:keydown", "KeyE detected", { spawnMenuOpen, chatOpen, pointerLocked: document.pointerLockElement === canvas, x: Number(camera.position.x.toFixed(2)), z: Number(camera.position.z.toFixed(2)) });
+        // #endregion
+      }
+      if (event.code === "Space" && onGround) {
+        velocity.y = jumpSpeed;
+        onGround = false;
+      }
+      if (event.code === "Escape" && spawnMenuOpen) {
+        closeSpawnUI();
+        return;
+      }
+      if (event.code === "Escape" && chatOpen) {
+        closeChatUI();
+        return;
+      }
+      if (event.code === "Escape" && pauseMenuOpen) {
+        closePauseMenu();
+        return;
+      }
+      if (event.code === "Escape" && deleteConfirmOpen) {
+        closeDeleteConfirm();
+        return;
+      }
+      if (event.code === "Escape" && recoverMenuOpen) {
+        closeRecoverMenu();
+        return;
+      }
+      if (event.code === "Escape" && settingsOpen) {
+        closeSettingsMenu();
+        return;
+      }
+      if (event.code === "Escape" && !spawnMenuOpen && !chatOpen && !settingsOpen) {
+        openPauseMenu();
+        return;
+      }
+      if (event.code === "KeyE") {
+        const distToTerminal = getDistanceToTerminalInteraction();
+        if (distToTerminal < TERMINAL_INTERACT_RANGE && !chatOpen && !pauseMenuOpen && !deleteConfirmOpen && !spawnMenuOpen && !settingsOpen) {
+          openRecoverMenu();
+          return;
+        }
+        const distToButton = getDistanceToButtonInteraction();
+        // #region agent log
+        debugLog("H3", "MERCURY_HTML_GAME.html:keydown", "Distance check for button", { distToButton: Number(distToButton.toFixed(3)), threshold: BUTTON_INTERACT_RANGE, spawnMenuOpen, chatOpen });
+        // #endregion
+        if (distToButton < BUTTON_INTERACT_RANGE) {
+          // #region agent log
+          debugLog("H4", "MERCURY_HTML_GAME.html:keydown", "Button interaction passed threshold", { action: "openSpawnUI" });
+          // #endregion
+          openSpawnUI();
+        }
+      }
+      if (event.code === "Tab" && !spawnMenuOpen && !chatOpen && !pauseMenuOpen && !recoverMenuOpen && !settingsOpen) {
+        const candidates = getNpcTalkCandidates();
+        updateTalkCandidateSignature(candidates);
+        if (candidates.length > 1) {
+          event.preventDefault();
+          const cur = talkFocusMirrorId;
+          let idx = candidates.findIndex((c) => npcStableTalkKey(c.npc) === cur);
+          if (idx < 0) idx = 0;
+          const next = candidates[(idx + 1) % candidates.length].npc;
+          talkFocusMirrorId = npcStableTalkKey(next);
+        }
+      }
+      if (event.code === "KeyF" && !spawnMenuOpen && !chatOpen && !pauseMenuOpen && !recoverMenuOpen && !settingsOpen) {
+        const { nearest, nearestDist } = getNearestNpcWithDistance();
+        if (!nearest || nearestDist > TALK_RANGE) return;
+        event.preventDefault();
+        openChatUI(nearest);
+      }
+      if (event.code === "KeyX" && deleteConfirmOpen && pendingDeleteNpc) {
+        event.preventDefault();
+        deleteNpcById(pendingDeleteNpc.id);
+        closeDeleteConfirm();
+        return;
+      }
+      if (event.code === "KeyX" && handSlot === 2 && !spawnMenuOpen && !chatOpen && !pauseMenuOpen && !recoverMenuOpen && !settingsOpen) {
+        const { nearest, nearestDist } = getNearestNpcWithDistance();
+        if (!nearest || nearestDist > TALK_RANGE) return;
+        event.preventDefault();
+        openDeleteConfirm(nearest);
+      }
+    });
+    document.addEventListener("keyup", (event) => keys.delete(event.code));
+
+    let previous = performance.now();
+
+    function updateMovement(dt) {
+      move.set(0, 0, 0);
+      if (keys.has("KeyW") || keys.has("ArrowUp")) move.z -= 1;
+      if (keys.has("KeyS") || keys.has("ArrowDown")) move.z += 1;
+      if (keys.has("KeyA") || keys.has("ArrowLeft")) move.x -= 1;
+      if (keys.has("KeyD") || keys.has("ArrowRight")) move.x += 1;
+      if (move.lengthSq() > 0) move.normalize();
+
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      if (forward.lengthSq() > 0) forward.normalize();
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+      const walk = new THREE.Vector3()
+        .addScaledVector(forward, -move.z)
+        .addScaledVector(right, -move.x);
+      if (walk.lengthSq() > 0) walk.normalize().multiplyScalar(moveSpeed * dt);
+      camera.position.add(walk);
+
+      const radius = Math.hypot(camera.position.x, camera.position.z);
+      if (radius > borderLimit) {
+        const scale = borderLimit / radius;
+        camera.position.x *= scale;
+        camera.position.z *= scale;
+      }
+
+      velocity.y -= gravity * dt;
+      camera.position.y += velocity.y * dt;
+
+      if (camera.position.y <= playerHeight) {
+        camera.position.y = playerHeight;
+        velocity.y = 0;
+        onGround = true;
+      }
+    }
+
+    function animate(now) {
+      const dt = Math.min(0.033, (now - previous) / 1000);
+      previous = now;
+
+      if (!frontDoorOpen && !spawnMenuOpen && !chatOpen && !pauseMenuOpen && !deleteConfirmOpen && !recoverMenuOpen && !settingsOpen) {
+        updateMovement(dt);
+      }
+
+      const blockTalkScan =
+        spawnMenuOpen ||
+        chatOpen ||
+        pauseMenuOpen ||
+        deleteConfirmOpen ||
+        recoverMenuOpen ||
+        settingsOpen ||
+        frontDoorOpen;
+      const talkTarget = blockTalkScan
+        ? { nearest: null, nearestDist: Infinity, candidates: [] }
+        : getNpcInteractionTarget();
+      nearestNpc = talkTarget.nearest;
+      if (nearestNpc && talkTarget.nearestDist < TALK_RANGE && !blockTalkScan) {
+        talkPrompt.style.display = "block";
+        const tabHint =
+          talkTarget.candidates.length > 1
+            ? " | Tab: switch between " + talkTarget.candidates.length + " nearby agents"
+            : "";
+        if (handSlot === 2) {
+          talkPrompt.textContent = "Press F to talk | X to banish " + nearestNpc.name + tabHint;
+        } else {
+          talkPrompt.textContent = "Press F to talk to " + nearestNpc.name + tabHint;
+        }
+      } else {
+        talkPrompt.style.display = "none";
+      }
+      if (!blockTalkScan) {
+        const distToTerminal = getDistanceToTerminalInteraction();
+        if (distToTerminal < TERMINAL_INTERACT_RANGE) {
+          talkPrompt.style.display = "block";
+          talkPrompt.textContent = "Press E at terminal to Recover Agent";
+        } else {
+          const distToButtonPrompt = getDistanceToButtonInteraction();
+          if (distToButtonPrompt < BUTTON_INTERACT_RANGE) {
+            talkPrompt.style.display = "block";
+            talkPrompt.textContent = "Press E at button — pick one of eight team colors";
+          }
+        }
+      }
+
+      islandGroup.rotation.y += dt * 0.03;
+      clouds.rotation.y += dt * 0.008;
+      stars.rotation.y += dt * 0.004;
+      if (spawnMenuOpen) {
+        redButton.position.y = redButtonBaseY - 0.025;
+        redButton.material.emissiveIntensity = 1.8;
+      } else {
+        redButton.position.y = redButtonBaseY;
+        redButton.material.emissiveIntensity = 1.2;
+      }
+      waterfall.material.opacity = 0.62 + Math.sin(now * 0.006) * 0.12;
+      waterfallTop.material.opacity = 0.78 + Math.sin(now * 0.008) * 0.1;
+      if (handSlot === 2) {
+        staffMagicRingA.rotation.z += dt * 1.4;
+        staffMagicRingB.rotation.x += dt * 1.1;
+        staffMagicGlow.material.opacity = 0.24 + Math.sin(now * 0.01) * 0.1;
+        for (let i = 0; i < staffMagicOrbs.length; i++) {
+          const a = (i / staffMagicOrbs.length) * Math.PI * 2 + now * 0.0026;
+          const radius = 0.12 + Math.sin(now * 0.003 + i) * 0.015;
+          staffMagicOrbs[i].position.set(0.08 + Math.cos(a) * radius, 0.44 + Math.sin(now * 0.004 + i) * 0.03, Math.sin(a) * radius);
+        }
+      }
+      const flamePulse = 0.9 + Math.sin(now * 0.018) * 0.12;
+      campfire.children[campfire.children.length - 2].scale.set(1, flamePulse, 1);
+      campfire.children[campfire.children.length - 1].scale.set(1, 0.92 + Math.sin(now * 0.014) * 0.09, 1);
+      for (const npc of npcs) {
+        npc.mesh.position.y = npc.baseY + Math.sin(now * 0.002 + npc.seed) * 0.035;
+        npc.mesh.rotation.y += npc.spin * dt;
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    async function startGame(slot = activeSaveSlot, mapId = activeWorldMapId) {
+      activeSaveSlot = normalizeSaveSlot(slot);
+      applyWorldMapTheme(mapId);
+      localStorage.setItem(ACTIVE_SAVE_SLOT_KEY, activeSaveSlot);
+      playerId = buildSlotPlayerId(activeSaveSlot);
+      localStorage.setItem(WORLD_PLAYER_ID_KEY, playerId);
+      frontDoorOpen = false;
+      gameStarted = true;
+      document.body.classList.add("in-game");
+      if (frontdoor) frontdoor.classList.add("hidden");
+      showLoadingOverlay((worldMaps[activeWorldMapId] || worldMaps.floating_realm).loading);
+      resetWorldForLoad();
+      if (supabase) {
+        supabase.auth.onAuthStateChange((_event, session) => {
+          const uid = session && session.user ? session.user.id : "";
+          const email = session && session.user ? session.user.email : "";
+          if (uid) {
+            accountBaseId = uid;
+            localStorage.setItem(WORLD_ACCOUNT_ID_KEY, uid);
+            playerId = buildSlotPlayerId(activeSaveSlot);
+            localStorage.setItem(WORLD_PLAYER_ID_KEY, playerId);
+            setCloudUserStatus(email || uid.slice(0, 8) + "...");
+            setCloudStatus("ok", cloudSyncStatus === "idle" ? "ready" : cloudSyncStatus);
+          } else {
+            setCloudUserStatus("guest");
+          }
+        });
+      }
+      await loadWorldState();
+      await ingestPaperclipMirror();
+      updateHandSlotVisuals();
+      if (!gameLoopStarted) {
+        gameLoopStarted = true;
+        window.addEventListener("beforeunload", () => {
+          if (gameStarted) persistWorldState("Unload autosave");
+        });
+        setInterval(() => {
+          if (gameStarted) autoSaveWorldState();
+        }, AUTOSAVE_INTERVAL_MS);
+        setInterval(() => {
+          if (gameStarted) ingestPaperclipMirror().catch((err) => console.error("Mirror timer error", err));
+        }, MIRROR_SYNC_INTERVAL_MS);
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(() => {
+        hideLoadingOverlay();
+      });
+    }
+
+    async function continueAsGuest() {
+      if (authStatus) authStatus.textContent = "Starting guest account...";
+      await initCloudIdentity({ allowAnonymous: true });
+      await showHomeScreen();
+    }
+
+    async function bootFrontDoor() {
+      loadSettings();
+      if (!supabase) {
+        accountBaseId = getOrCreatePlayerId();
+        playerId = buildSlotPlayerId(activeSaveSlot);
+        setCloudUserStatus("local guest");
+        setCloudStatus("disabled", "local-only");
+        await showHomeScreen();
+        return;
+      }
+      await initCloudIdentity({ allowAnonymous: false });
+      if (accountBaseId && cloudAuthStatus === "ok") {
+        await showHomeScreen();
+      } else {
+        showAuthScreen();
+      }
+    }
+
+    cloudLinkAccount.addEventListener("click", linkSaveToEmail);
+    authGuest.addEventListener("click", continueAsGuest);
+    authGoogle.addEventListener("click", () => signInWithOAuthProvider("google"));
+    authGithub.addEventListener("click", () => signInWithOAuthProvider("github"));
+    homeShop.addEventListener("click", () => {
+      window.alert("Shop is coming soon. Agent cosmetics, world props, and map items will live here.");
+    });
+    homeSettings.addEventListener("click", openSettingsMenu);
+    homeSignOut.addEventListener("click", async () => {
+      if (supabase) await supabase.auth.signOut();
+      localStorage.removeItem(WORLD_ACCOUNT_ID_KEY);
+      accountBaseId = "";
+      playerId = getOrCreatePlayerId();
+      setCloudUserStatus("guest");
+      setCloudStatus("signed out", "local-only");
+      showAuthScreen();
+    });
+    for (const button of slotButtons) {
+      button.addEventListener("click", async () => {
+        const slot = normalizeSaveSlot(button.dataset.slot || "1");
+        const state = await getSlotState(slot);
+        if (state.hasSave && state.data) {
+          startGame(slot, state.data.mapId || "floating_realm");
+          return;
+        }
+        showMapScreen(slot);
+      });
+    }
+    if (mapBack) {
+      mapBack.addEventListener("click", () => showHomeScreen());
+    }
+    for (const button of mapButtons) {
+      button.addEventListener("click", () => {
+        startGame(pendingMapSlot || activeSaveSlot, button.dataset.map || "floating_realm");
+      });
+    }
+    if (supabase) {
+      const cloudOauthGoogle = document.getElementById("cloud-oauth-google");
+      const cloudOauthGithub = document.getElementById("cloud-oauth-github");
+      if (cloudOauthGoogle) cloudOauthGoogle.addEventListener("click", () => signInWithOAuthProvider("google"));
+      if (cloudOauthGithub) cloudOauthGithub.addEventListener("click", () => signInWithOAuthProvider("github"));
+    }
+    bootFrontDoor();
+  </script>
+</body>
+</html>
