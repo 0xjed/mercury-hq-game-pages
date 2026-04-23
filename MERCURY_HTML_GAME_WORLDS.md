@@ -2,7 +2,7 @@
 
 ## Production
 
-Stable game URL: **https://mercury-hq-game.netlify.app/MERCURY_HTML_GAME.html**
+Stable game URL: **https://0xjed.github.io/mercury-hq-game-pages/MERCURY_HTML_GAME.html**
 After deploys, do a **hard refresh** before testing.
 
 ## Save slots + `mapId`
